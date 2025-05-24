@@ -1,26 +1,129 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
-import * as vscode from 'vscode';
+import * as vscode from "vscode";
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
-export function activate(context: vscode.ExtensionContext) {
+import { ClangdExtensionImpl } from "./clangd/api";
+import { ClangdContext } from "./clangd/clangd-context";
+import { get, update } from "./config";
+import { ClangdExtension } from "./clangd/vscode-clangd";
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "kappa" is now active!');
+let apiInstance: ClangdExtensionImpl | undefined;
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('kappa.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from Kappa!');
-	});
+/**
+ *  This method is called when the extension is activated. The extension is
+ *  activated the very first time a command is executed.
+ */
+export async function activate(
+  context: vscode.ExtensionContext
+): Promise<ClangdExtension> {
+  const outputChannel = vscode.window.createOutputChannel("clangd");
+  context.subscriptions.push(outputChannel);
 
-	context.subscriptions.push(disposable);
+  let clangdContext: ClangdContext | null = null;
+
+  // An empty place holder for the activate command, otherwise we'll get an
+  // "command is not registered" error.
+  context.subscriptions.push(
+    vscode.commands.registerCommand("clangd.activate", async () => {})
+  );
+  context.subscriptions.push(
+    vscode.commands.registerCommand("clangd.restart", async () => {
+      if (!get<boolean>("enable")) {
+        vscode.window
+          .showInformationMessage(
+            "Language features from Clangd are currently disabled. Would you like to enable them?",
+            "Enable",
+            "Close"
+          )
+          .then(async (choice) => {
+            if (choice === "Enable") {
+              await update<boolean>("enable", true);
+              vscode.commands.executeCommand("clangd.restart");
+            }
+          });
+        return;
+      }
+
+      // clangd.restart can be called when the extension is not yet activated.
+      // In such a case, vscode will activate the extension and then run this
+      // handler. Detect this situation and bail out (doing an extra
+      // stop/start cycle in this situation is pointless, and doesn't work
+      // anyways because the client can't be stop()-ped when it's still in the
+      // Starting state).
+      if (clangdContext && clangdContext.clientIsStarting()) {
+        return;
+      }
+      if (clangdContext) {
+        clangdContext.dispose();
+      }
+      clangdContext = await ClangdContext.create(
+        context.globalStoragePath,
+        outputChannel
+      );
+      if (clangdContext) {
+        context.subscriptions.push(clangdContext);
+      }
+      if (apiInstance) {
+        apiInstance.client = clangdContext?.client;
+      }
+    })
+  );
+
+  let shouldCheck = false;
+
+  if (vscode.workspace.getConfiguration("clangd").get<boolean>("enable")) {
+    clangdContext = await ClangdContext.create(
+      context.globalStoragePath,
+      outputChannel
+    );
+    if (clangdContext) {
+      context.subscriptions.push(clangdContext);
+    }
+
+    shouldCheck =
+      vscode.workspace
+        .getConfiguration("clangd")
+        .get<boolean>("detectExtensionConflicts") ?? false;
+  }
+
+  if (shouldCheck) {
+    const interval = setInterval(function () {
+      const cppTools = vscode.extensions.getExtension("ms-vscode.cpptools");
+      if (cppTools && cppTools.isActive) {
+        const cppToolsConfiguration =
+          vscode.workspace.getConfiguration("C_Cpp");
+        const cppToolsEnabled =
+          cppToolsConfiguration.get<string>("intelliSenseEngine");
+        if (cppToolsEnabled?.toLowerCase() !== "disabled") {
+          vscode.window
+            .showWarningMessage(
+              "You have both the Microsoft C++ (cpptools) extension and " +
+                "clangd extension enabled. The Microsoft IntelliSense features " +
+                "conflict with clangd's code completion, diagnostics etc.",
+              "Disable IntelliSense",
+              "Never show this warning"
+            )
+            .then((selection) => {
+              if (selection === "Disable IntelliSense") {
+                cppToolsConfiguration.update(
+                  "intelliSenseEngine",
+                  "disabled",
+                  vscode.ConfigurationTarget.Global
+                );
+              } else if (selection === "Never show this warning") {
+                vscode.workspace
+                  .getConfiguration("clangd")
+                  .update(
+                    "detectExtensionConflicts",
+                    false,
+                    vscode.ConfigurationTarget.Global
+                  );
+                clearInterval(interval);
+              }
+            });
+        }
+      }
+    }, 5000);
+  }
+
+  apiInstance = new ClangdExtensionImpl(clangdContext?.client);
+  return apiInstance;
 }
-
-// This method is called when your extension is deactivated
-export function deactivate() {}
