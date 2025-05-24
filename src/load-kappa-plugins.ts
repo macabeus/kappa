@@ -54,14 +54,15 @@ export async function loadKappaPlugins(visitor: ASTVisitor): Promise<void> {
         // Create an instance of the plugin
         const pluginInstance: ASTVisitorPlugin = new PluginClass();
 
-        // Validate that it implements the ASTVisitorPlugin interface
-        if (!pluginInstance.nodeTypes || !Array.isArray(pluginInstance.nodeTypes)) {
-          vscode.window.showWarningMessage(`Skipping plugin \`${jsFile}\`: Invalid nodeTypes array`);
-          continue;
-        }
+        // Validate that plugin has at least one visit method
+        const foundVisitMethod = Boolean(
+          Object.getOwnPropertyNames(Object.getPrototypeOf(pluginInstance))
+            .concat(Object.getOwnPropertyNames(pluginInstance))
+            .find((name) => name.startsWith('visit')),
+        );
 
-        if (typeof pluginInstance.visit !== 'function') {
-          vscode.window.showWarningMessage(`Skipping plugin \`${jsFile}\`: Invalid visit method`);
+        if (!foundVisitMethod) {
+          vscode.window.showWarningMessage(`Skipping plugin \`${jsFile}\`: No valid node handler methods found`);
           continue;
         }
 

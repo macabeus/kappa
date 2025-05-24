@@ -6,12 +6,31 @@ import { ASTVisitor, ASTVisitorPlugin } from '../ast-visitor';
  * Example plugin that counts different types of statements
  */
 export class StatementCounterPlugin implements ASTVisitorPlugin {
-  nodeTypes = ['IfStmt', 'ForStmt', 'WhileStmt', 'ReturnStmt', 'CompoundStmt'];
   private counts: Map<string, number> = new Map();
 
-  visit(node: ASTNode, visitor: ASTVisitor, context?: any): void {
-    const currentCount = this.counts.get(node.kind) || 0;
-    this.counts.set(node.kind, currentCount + 1);
+  visitIfStmt(node: ASTNode, visitor: ASTVisitor, context?: any): void {
+    this.incrementCount('IfStmt');
+  }
+
+  visitForStmt(node: ASTNode, visitor: ASTVisitor, context?: any): void {
+    this.incrementCount('ForStmt');
+  }
+
+  visitWhileStmt(node: ASTNode, visitor: ASTVisitor, context?: any): void {
+    this.incrementCount('WhileStmt');
+  }
+
+  visitReturnStmt(node: ASTNode, visitor: ASTVisitor, context?: any): void {
+    this.incrementCount('ReturnStmt');
+  }
+
+  visitCompoundStmt(node: ASTNode, visitor: ASTVisitor, context?: any): void {
+    this.incrementCount('CompoundStmt');
+  }
+
+  private incrementCount(nodeType: string): void {
+    const currentCount = this.counts.get(nodeType) || 0;
+    this.counts.set(nodeType, currentCount + 1);
   }
 
   getCounts(): Map<string, number> {
@@ -42,11 +61,15 @@ function createTestNode(kind: string, role: string = 'expression', children?: AS
 
 // Test plugin implementations
 class TestCounterPlugin implements ASTVisitorPlugin {
-  nodeTypes = ['TestNode'];
   visitCount = 0;
   visitedNodes: ASTNode[] = [];
 
-  visit(node: ASTNode, visitor: ASTVisitor, context?: any): void {
+  visitTestNode(node: ASTNode, visitor: ASTVisitor, context?: any): void {
+    this.visitCount++;
+    this.visitedNodes.push(node);
+  }
+
+  visitChildNode(node: ASTNode, visitor: ASTVisitor, context?: any): void {
     this.visitCount++;
     this.visitedNodes.push(node);
   }
@@ -58,12 +81,23 @@ class TestCounterPlugin implements ASTVisitorPlugin {
 }
 
 class MultiTypePlugin implements ASTVisitorPlugin {
-  nodeTypes = ['TypeA', 'TypeB', 'TypeC'];
   visitCounts: Map<string, number> = new Map();
 
-  visit(node: ASTNode, visitor: ASTVisitor, context?: any): void {
-    const count = this.visitCounts.get(node.kind) || 0;
-    this.visitCounts.set(node.kind, count + 1);
+  visitTypeA(node: ASTNode, visitor: ASTVisitor, context?: any): void {
+    this.incrementCount('TypeA');
+  }
+
+  visitTypeB(node: ASTNode, visitor: ASTVisitor, context?: any): void {
+    this.incrementCount('TypeB');
+  }
+
+  visitTypeC(node: ASTNode, visitor: ASTVisitor, context?: any): void {
+    this.incrementCount('TypeC');
+  }
+
+  private incrementCount(nodeType: string): void {
+    const count = this.visitCounts.get(nodeType) || 0;
+    this.visitCounts.set(nodeType, count + 1);
   }
 
   reset(): void {
@@ -72,10 +106,9 @@ class MultiTypePlugin implements ASTVisitorPlugin {
 }
 
 class AsyncTestPlugin implements ASTVisitorPlugin {
-  nodeTypes = ['AsyncNode'];
   processedNodes: ASTNode[] = [];
 
-  async visit(node: ASTNode, visitor: ASTVisitor, context?: any): Promise<void> {
+  async visitAsyncNode(node: ASTNode, visitor: ASTVisitor, context?: any): Promise<void> {
     // Simulate async operation
     await new Promise((resolve) => setTimeout(resolve, 1));
     this.processedNodes.push(node);
@@ -87,15 +120,27 @@ class AsyncTestPlugin implements ASTVisitorPlugin {
 }
 
 class ContextTestPlugin implements ASTVisitorPlugin {
-  nodeTypes = ['ContextNode'];
   receivedContexts: any[] = [];
 
-  visit(node: ASTNode, visitor: ASTVisitor, context?: any): void {
+  visitContextNode(node: ASTNode, visitor: ASTVisitor, context?: any): void {
     this.receivedContexts.push(context);
   }
 
   reset(): void {
     this.receivedContexts = [];
+  }
+}
+
+// Test plugin for wildcard functionality
+class WildcardPlugin implements ASTVisitorPlugin {
+  visitedNodes: ASTNode[] = [];
+
+  visitAny(node: ASTNode, visitor: ASTVisitor, context?: any): void {
+    this.visitedNodes.push(node);
+  }
+
+  reset(): void {
+    this.visitedNodes = [];
   }
 }
 
@@ -116,8 +161,8 @@ suite('AST Visitor Test Suite', () => {
       visitor.registerPlugin(plugin);
 
       const registeredTypes = visitor.getRegisteredNodeTypes();
-      assert.strictEqual(registeredTypes.length, 1);
-      assert.strictEqual(registeredTypes[0], 'TestNode');
+      assert.strictEqual(registeredTypes.includes('TestNode'), true);
+      assert.strictEqual(registeredTypes.includes('ChildNode'), true);
     });
 
     test('should register multiple plugins for same node type', () => {
@@ -136,7 +181,9 @@ suite('AST Visitor Test Suite', () => {
       visitor.registerPlugin(plugin);
 
       const registeredTypes = visitor.getRegisteredNodeTypes().sort();
-      assert.deepStrictEqual(registeredTypes, ['TypeA', 'TypeB', 'TypeC']);
+      assert.strictEqual(registeredTypes.includes('TypeA'), true);
+      assert.strictEqual(registeredTypes.includes('TypeB'), true);
+      assert.strictEqual(registeredTypes.includes('TypeC'), true);
     });
 
     test('should unregister plugin', () => {
@@ -166,7 +213,6 @@ suite('AST Visitor Test Suite', () => {
     setup(() => {
       visitor = new ASTVisitor();
       plugin = new TestCounterPlugin();
-      plugin.nodeTypes = ['TestNode', 'ChildNode'];
       visitor.registerPlugin(plugin);
     });
 
@@ -299,17 +345,15 @@ suite('AST Visitor Test Suite', () => {
   suite('Built-in Plugins', () => {
     test('StatementCounterPlugin should count statements', () => {
       const plugin = new StatementCounterPlugin();
-
-      assert.deepStrictEqual(plugin.nodeTypes, ['IfStmt', 'ForStmt', 'WhileStmt', 'ReturnStmt', 'CompoundStmt']);
+      const visitor = new ASTVisitor();
 
       const ifNode = createTestNode('IfStmt');
       const forNode = createTestNode('ForStmt');
       const anotherIfNode = createTestNode('IfStmt');
-      const visitor = new ASTVisitor();
 
-      plugin.visit(ifNode, visitor);
-      plugin.visit(forNode, visitor);
-      plugin.visit(anotherIfNode, visitor);
+      plugin.visitIfStmt(ifNode, visitor);
+      plugin.visitForStmt(forNode, visitor);
+      plugin.visitIfStmt(anotherIfNode, visitor);
 
       const counts = plugin.getCounts();
       assert.strictEqual(counts.get('IfStmt'), 2);
@@ -319,38 +363,15 @@ suite('AST Visitor Test Suite', () => {
 
     test('StatementCounterPlugin should reset counts', () => {
       const plugin = new StatementCounterPlugin();
+      const visitor = new ASTVisitor();
 
       const ifNode = createTestNode('IfStmt');
-      const visitor = new ASTVisitor();
-      plugin.visit(ifNode, visitor);
+      plugin.visitIfStmt(ifNode, visitor);
 
       assert.strictEqual(plugin.getCounts().get('IfStmt'), 1);
 
       plugin.resetCounts();
       assert.strictEqual(plugin.getCounts().size, 0);
-    });
-  });
-
-  suite('BaseASTVisitorPlugin', () => {
-    class TestBasePlugin implements ASTVisitorPlugin {
-      nodeTypes = ['TestBaseNode'];
-      visitCount = 0;
-
-      visit(node: ASTNode, visitor: ASTVisitor, context?: any): void {
-        this.visitCount++;
-      }
-    }
-
-    test('should extend BaseASTVisitorPlugin correctly', () => {
-      const plugin = new TestBasePlugin();
-
-      assert.deepStrictEqual(plugin.nodeTypes, ['TestBaseNode']);
-
-      const node = createTestNode('TestBaseNode');
-      const visitor = new ASTVisitor();
-      plugin.visit(node, visitor);
-
-      assert.strictEqual(plugin.visitCount, 1);
     });
   });
 
@@ -379,8 +400,7 @@ suite('AST Visitor Test Suite', () => {
 
     test('should handle plugin with empty nodeTypes', () => {
       const plugin: ASTVisitorPlugin = {
-        nodeTypes: [],
-        visit: () => {},
+        // Plugin with no node handlers
       };
 
       visitor.registerPlugin(plugin);
@@ -403,8 +423,7 @@ suite('AST Visitor Test Suite', () => {
 
     test('should handle plugin that throws error', async () => {
       const errorPlugin: ASTVisitorPlugin = {
-        nodeTypes: ['ErrorNode'],
-        visit: () => {
+        visitErrorNode: () => {
           throw new Error('Plugin error');
         },
       };
@@ -421,8 +440,7 @@ suite('AST Visitor Test Suite', () => {
 
     test('should handle async plugin that rejects', async () => {
       const rejectPlugin: ASTVisitorPlugin = {
-        nodeTypes: ['RejectNode'],
-        visit: async () => {
+        visitRejectNode: async () => {
           throw new Error('Async plugin error');
         },
       };
@@ -444,9 +462,6 @@ suite('AST Visitor Test Suite', () => {
       const counterPlugin = new TestCounterPlugin();
       const multiTypePlugin = new MultiTypePlugin();
 
-      // Set up plugins to handle overlapping node types
-      counterPlugin.nodeTypes = ['TestNode', 'TypeA'];
-
       visitor.registerPlugin(counterPlugin);
       visitor.registerPlugin(multiTypePlugin);
 
@@ -460,7 +475,7 @@ suite('AST Visitor Test Suite', () => {
       await visitor.walk(root);
 
       // Check counter plugin results
-      assert.strictEqual(counterPlugin.visitCount, 3); // TestNode (root), TypeA (leaf1), TestNode (leaf3)
+      assert.strictEqual(counterPlugin.visitCount, 2); // TestNode (root), TestNode (leaf3)
 
       // Check multi-type plugin results
       assert.strictEqual(multiTypePlugin.visitCounts.get('TypeA'), 1);
@@ -635,6 +650,50 @@ suite('AST Visitor Test Suite', () => {
       // The method should handle the range conversion internally
       const result = await visitor.updateDocumentFromNode(node);
       assert.strictEqual(typeof result, 'boolean');
+    });
+  });
+
+  suite('ASTVisitor Wildcard Support', () => {
+    let visitor: ASTVisitor;
+    let wildcardPlugin: WildcardPlugin;
+
+    setup(() => {
+      visitor = new ASTVisitor();
+      wildcardPlugin = new WildcardPlugin();
+      visitor.registerPlugin(wildcardPlugin);
+    });
+
+    test('should visit all node types with wildcard plugin', async () => {
+      const node1 = createTestNode('TypeA');
+      const node2 = createTestNode('TypeB');
+      const node3 = createTestNode('UnknownType');
+
+      await visitor.walk(node1);
+      await visitor.walk(node2);
+      await visitor.walk(node3);
+
+      assert.strictEqual(wildcardPlugin.visitedNodes.length, 3);
+      assert.strictEqual(wildcardPlugin.visitedNodes[0].kind, 'TypeA');
+      assert.strictEqual(wildcardPlugin.visitedNodes[1].kind, 'TypeB');
+      assert.strictEqual(wildcardPlugin.visitedNodes[2].kind, 'UnknownType');
+    });
+
+    test('should work alongside specific node handlers', async () => {
+      const specificPlugin = new TestCounterPlugin();
+      visitor.registerPlugin(specificPlugin);
+
+      const testNode = createTestNode('TestNode');
+      const otherNode = createTestNode('OtherNode');
+
+      await visitor.walk(testNode);
+      await visitor.walk(otherNode);
+
+      // Wildcard plugin should visit both
+      assert.strictEqual(wildcardPlugin.visitedNodes.length, 2);
+
+      // Specific plugin should only visit TestNode
+      assert.strictEqual(specificPlugin.visitCount, 1);
+      assert.strictEqual(specificPlugin.visitedNodes[0].kind, 'TestNode');
     });
   });
 });
