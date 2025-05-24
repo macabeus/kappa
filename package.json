@@ -3,48 +3,182 @@
   "displayName": "Kappa",
   "description": "General helper for decompilation",
   "version": "0.0.1",
+  "publisher": "macabeus",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/macabeus/kappa.git"
+  },
   "engines": {
     "vscode": "^1.100.0"
   },
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onLanguage:c",
+    "onLanguage:cpp"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
+    "languages": [
+      {
+        "id": "cpp",
+        "filenamePatterns": [
+          "**/include/c++/**",
+          "**/MSVC/*/include/**"
+        ],
+        "firstLine": "^/[/*].*-\\*-\\s*C\\+\\+\\s*-\\*-.*"
+      }
+    ],
     "commands": [
       {
-        "command": "kappa.helloWorld",
-        "title": "Hello World"
+        "command": "kappa.runKappaPlugins",
+        "title": "Run Kappa Plugins"
       }
-    ]
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "clangd",
+      "properties": {
+        "clangd.path": {
+          "type": "string",
+          "default": "clangd",
+          "scope": "machine-overridable",
+          "description": "The path to clangd executable, e.g.: /usr/bin/clangd."
+        },
+        "clangd.useScriptAsExecutable": {
+          "type": "boolean",
+          "default": false,
+          "scope": "machine-overridable",
+          "description": "Allows the path to be a script e.g.: clangd.sh."
+        },
+        "clangd.arguments": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "Arguments for clangd server."
+        },
+        "clangd.trace": {
+          "type": "string",
+          "description": "Names a file that clangd should log a performance trace to, in chrome trace-viewer JSON format."
+        },
+        "clangd.semanticHighlighting": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable semantic highlighting in clangd.",
+          "deprecationMessage": "Legacy semanticHighlights is no longer supported. Please use `editor.semanticHighlighting.enabled` instead."
+        },
+        "clangd.fallbackFlags": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "Extra clang flags used to parse files when no compilation database is found."
+        },
+        "clangd.serverCompletionRanking": {
+          "type": "boolean",
+          "default": true,
+          "description": "Always rank completion items on the server as you type. This produces more accurate results at the cost of higher latency than client-side filtering."
+        },
+        "clangd.restartAfterCrash": {
+          "type": "boolean",
+          "default": true,
+          "description": "Auto restart clangd (up to 4 times) if it crashes."
+        },
+        "clangd.checkUpdates": {
+          "type": "boolean",
+          "default": false,
+          "description": "Check for language server updates on startup."
+        },
+        "clangd.onConfigChanged": {
+          "type": "string",
+          "default": "prompt",
+          "description": "What to do when clangd configuration files are changed. Ignored for clangd 12+, which can reload such files itself; however, this can be overridden with clangd.onConfigChanged.forceEnable.",
+          "enum": [
+            "prompt",
+            "restart",
+            "ignore"
+          ],
+          "enumDescriptions": [
+            "Prompt the user for restarting the server",
+            "Automatically restart the server",
+            "Do nothing"
+          ]
+        },
+        "clangd.onConfigChanged.forceEnable": {
+          "type": "boolean",
+          "default": false,
+          "description": "Force enable of \"On Config Changed\" option regardless of clangd version."
+        },
+        "clangd.detectExtensionConflicts": {
+          "type": "boolean",
+          "default": true,
+          "description": "Warn about conflicting extensions and suggest disabling them."
+        },
+        "clangd.inactiveRegions.useBackgroundHighlight": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use a background highlight rather than opacity to identify inactive preprocessor regions."
+        },
+        "clangd.inactiveRegions.opacity": {
+          "type": "number",
+          "default": 0.55,
+          "description": "Opacity of inactive regions (used only if clangd.inactiveRegions.useBackgroundHighlight=false)"
+        },
+        "clangd.enableCodeCompletion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable code completion provided by the language server"
+        },
+        "clangd.enableHover": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable hovers provided by the language server"
+        },
+        "clangd.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable clangd language server features"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "yarn run package",
-    "compile": "yarn run check-types && yarn run lint && node esbuild.js",
+    "compile": "yarn run check-types && yarn run lint && yarn run format:check && node esbuild.js",
     "watch": "npm-run-all -p watch:*",
     "watch:esbuild": "node esbuild.js --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "package": "yarn run check-types && yarn run lint && node esbuild.js --production",
+    "package": "yarn run check-types && yarn run lint && yarn run format:check && node esbuild.js --production",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
     "pretest": "yarn run compile-tests && yarn run compile && yarn run lint",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "vscode-test"
   },
+  "packageManager": "yarn@1.22.22+sha1.ac34549e6aa8e7ead463a7407e1c7390f61a6610",
+  "dependencies": {
+    "@clangd/install": "0.1.20",
+    "vscode-languageclient": "^9.0.1"
+  },
   "devDependencies": {
-    "@types/vscode": "^1.100.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
+    "@types/vscode": "^1.100.0",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",
-    "eslint": "^9.25.1",
-    "esbuild": "^0.25.3",
-    "npm-run-all": "^4.1.5",
-    "typescript": "^5.8.3",
     "@vscode/test-cli": "^0.0.10",
-    "@vscode/test-electron": "^2.5.2"
-  },
-  "packageManager": "yarn@1.22.22+sha1.ac34549e6aa8e7ead463a7407e1c7390f61a6610"
+    "@vscode/test-electron": "^2.5.2",
+    "esbuild": "^0.25.3",
+    "eslint": "^9.25.1",
+    "npm-run-all": "^4.1.5",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.3"
+  }
 }

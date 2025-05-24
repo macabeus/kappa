@@ -1,71 +1,42 @@
-# kappa README
+# Kappa
 
-This is the README for your extension "kappa". After writing up a brief description, we recommend including the following sections.
+[![GitHub Stars](https://flat.badgen.net/github/stars/macabeus/kappa?icon=github)](https://github.com/macabeus/kappa)
+[![Visual Studio Marketplace Downloads](https://flat.badgen.net/vs-marketplace/d/macabeus.kappa?icon=visualstudio)](https://marketplace.visualstudio.com/items?itemName=macabeus.kappa)
 
-## Features
+VS Code extension designed to help you when decompiling a codebase.
 
-Describe specific features of your extension including screenshots of your extension in action. Image paths are relative to this README file.
+https://github.com/user-attachments/assets/6ec32aba-6e94-4011-bbcb-2c4ea7c807c3
 
-For example if there is an image subfolder under your extension project workspace:
+> ⚠️ **Work in Progress**: This extension is currently under active development. Features and APIs may change.
 
-\!\[feature X\]\(images/feature-x.png\)
+- **✅ Automated Code Fixes:** Use plugins to automatically update the code’s AST, eliminating repetitive tasks and correcting common errors.
+- **🚧 AI Prompt Builder:** Craft prompts to guide AI in decompiling functions _(coming soon)_.
 
-> Tip: Many popular extensions utilize animations. This is an excellent way to show off your extension! We recommend short, focused animations that are easy to follow.
+## 🔌 Kappa Plugins
 
-## Requirements
+**Kappa plugins** are scripts that transform the Abstract Syntax Tree (AST) of C/C++ code blocks. They can be used to:
 
-If you have any requirements or dependencies, add a section describing those and how to install and configure them.
+- Fix common decompilation errors
+- Avoid repetitive tasks
 
-## Extension Settings
+### Example Kappa Plugin Case
 
-Include if your extension adds any VS Code settings through the `contributes.configuration` extension point.
+For instance: When decompiling [Sonic Advance 3](https://github.com/SAT-R/sa3) using AI, it kept messing up by using raw numbers instead of the proper Q notation. So, we can [`ApplyQNotationPlugin`](./example-kappa-plugins/ApplyQNotationPlugin.js) that catches assignments to `Vec32` using a raw number and replaces it with the Q format.
 
-For example:
+```cpp
+// Before: Raw decompiled code
+player.x = 256;
 
-This extension contributes the following settings:
+// After: ApplyQNotationPlugin transformation
+player.x = Q(1);
+```
 
-* `myExtension.enable`: Enable/disable this extension.
-* `myExtension.thing`: Set to `blah` to do something.
+### How to use
 
-## Known Issues
+1. Add the plugins in a folder called `.kappa-plugins` from the workspace root.
+2. Select a function
+3. Run the action `Run Kappa Plugins`
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+### Plugin Development
 
-## Release Notes
-
-Users appreciate release notes as you update your extension.
-
-### 1.0.0
-
-Initial release of ...
-
-### 1.0.1
-
-Fixed issue #.
-
-### 1.1.0
-
-Added features X, Y, and Z.
-
----
-
-## Following extension guidelines
-
-Ensure that you've read through the extensions guidelines and follow the best practices for creating your extension.
-
-* [Extension Guidelines](https://code.visualstudio.com/api/references/extension-guidelines)
-
-## Working with Markdown
-
-You can author your README using Visual Studio Code. Here are some useful editor keyboard shortcuts:
-
-* Split the editor (`Cmd+\` on macOS or `Ctrl+\` on Windows and Linux).
-* Toggle preview (`Shift+Cmd+V` on macOS or `Shift+Ctrl+V` on Windows and Linux).
-* Press `Ctrl+Space` (Windows, Linux, macOS) to see a list of Markdown snippets.
-
-## For more information
-
-* [Visual Studio Code's Markdown Support](http://code.visualstudio.com/docs/languages/markdown)
-* [Markdown Syntax Reference](https://help.github.com/articles/markdown-basics/)
-
-**Enjoy!**
+Want to create your own Kappa Plugin? Check out the [`example-kappa-plugins`](./example-kappa-plugins) directory for examples and templates.

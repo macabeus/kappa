@@ -1,26 +1,40 @@
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import { activateClangd } from './clangd/activate-clangd';
+import { ClangdExtension } from './clangd/vscode-clangd';
+import { ASTVisitor } from './ast-visitor';
+import { ASTRequestType } from './clangd/ast';
+import { loadKappaPlugins } from './load-kappa-plugins';
 
-// This method is called when your extension is activated
-// Your extension is activated the very first time the command is executed
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext): Promise<ClangdExtension> {
+  const apiInstance = await activateClangd(context);
 
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "kappa" is now active!');
+  vscode.commands.registerCommand('kappa.runKappaPlugins', async () => {
+    const client = apiInstance.client;
+    if (!client) {
+      vscode.window.showErrorMessage('Clangd client is not available.');
+      return;
+    }
 
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	const disposable = vscode.commands.registerCommand('kappa.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from Kappa!');
-	});
+    const converter = client.code2ProtocolConverter;
+    const editor = vscode.window.activeTextEditor;
 
-	context.subscriptions.push(disposable);
+    const item = await client.sendRequest(ASTRequestType, {
+      textDocument: converter.asTextDocumentIdentifier(editor!.document),
+      range: converter.asRange(editor!.selection),
+    });
+
+    if (!item) {
+      vscode.window.showErrorMessage('No AST found for the current selection.');
+      return;
+    }
+
+    const visitor = new ASTVisitor();
+
+    // Load custom plugins from kappa-plugins folder
+    await loadKappaPlugins(visitor);
+
+    await visitor.walk(item);
+  });
+
+  return apiInstance;
 }
-
-// This method is called when your extension is deactivated
-export function deactivate() {}
