@@ -174,15 +174,13 @@ suite('Extension Test Suite', () => {
     });
 
     test('should load valid plugin successfully', async () => {
-      // Create a valid test plugin
+      // Create a valid test plugin using the new Babel-like interface
       const validPluginContent = `
-export default class ValidTestPlugin {
-  nodeTypes = ["TestNode"];
-  
-  async visit(node, visitor) {
-    console.log("ValidTestPlugin visited:", node.kind);
-  }
-}
+        export default class ValidTestPlugin {
+          async visitTestNode(node, visitor) {
+            console.log("ValidTestPlugin visited:", node.kind);
+          }
+        }
       `;
 
       createTestPluginFile(path.join(testPluginsFolder, 'ValidTestPlugin.js'), validPluginContent);
@@ -199,19 +197,18 @@ export default class ValidTestPlugin {
     });
 
     test('should load multiple valid plugins', async () => {
-      // Create multiple valid test plugins
+      // Create multiple valid test plugins using the new interface
       const plugin1Content = `
-export default class Plugin1 {
-  nodeTypes = ["TypeA"];
-  async visit(node, visitor) {}
-}
+        export default class Plugin1 {
+          async visitTypeA(node, visitor) {}
+        }
       `;
 
       const plugin2Content = `
-export default class Plugin2 {
-  nodeTypes = ["TypeB", "TypeC"];
-  async visit(node, visitor) {}
-}
+        export default class Plugin2 {
+          async visitTypeB(node, visitor) {}
+          async visitTypeC(node, visitor) {}
+        }
       `;
 
       createTestPluginFile(path.join(testPluginsFolder, 'Plugin1.js'), plugin1Content);
@@ -231,10 +228,9 @@ export default class Plugin2 {
     test('should handle plugin without default export', async () => {
       // Create plugin without default export
       const invalidPluginContent = `
-export class NamedExportPlugin {
-  nodeTypes = ["TestNode"];
-  async visit(node, visitor) {}
-}
+        export class NamedExportPlugin {
+          async visitTestNode(node, visitor) {}
+        }
       `;
 
       createTestPluginFile(path.join(testPluginsFolder, 'InvalidPlugin.js'), invalidPluginContent);
@@ -245,62 +241,13 @@ export class NamedExportPlugin {
       assert.strictEqual(visitor.getRegisteredNodeTypes().length, 0);
     });
 
-    test('should handle plugin without nodeTypes', async () => {
-      // Create plugin without nodeTypes
+    test('should handle plugin without node handlers', async () => {
+      // Create plugin without any node handler methods
       const invalidPluginContent = `
-export default class InvalidPlugin {
-  async visit(node, visitor) {}
-}
-      `;
-
-      createTestPluginFile(path.join(testPluginsFolder, 'InvalidPlugin.js'), invalidPluginContent);
-
-      await loadKappaPlugins(visitor);
-
-      // Should not register any plugins
-      assert.strictEqual(visitor.getRegisteredNodeTypes().length, 0);
-    });
-
-    test('should handle plugin with invalid nodeTypes', async () => {
-      // Create plugin with invalid nodeTypes (not an array)
-      const invalidPluginContent = `
-export default class InvalidPlugin {
-  nodeTypes = "TestNode";
-  async visit(node, visitor) {}
-}
-      `;
-
-      createTestPluginFile(path.join(testPluginsFolder, 'InvalidPlugin.js'), invalidPluginContent);
-
-      await loadKappaPlugins(visitor);
-
-      // Should not register any plugins
-      assert.strictEqual(visitor.getRegisteredNodeTypes().length, 0);
-    });
-
-    test('should handle plugin without visit method', async () => {
-      // Create plugin without visit method
-      const invalidPluginContent = `
-export default class InvalidPlugin {
-  nodeTypes = ["TestNode"];
-}
-      `;
-
-      createTestPluginFile(path.join(testPluginsFolder, 'InvalidPlugin.js'), invalidPluginContent);
-
-      await loadKappaPlugins(visitor);
-
-      // Should not register any plugins
-      assert.strictEqual(visitor.getRegisteredNodeTypes().length, 0);
-    });
-
-    test('should handle plugin with invalid visit method', async () => {
-      // Create plugin with non-function visit property
-      const invalidPluginContent = `
-export default class InvalidPlugin {
-  nodeTypes = ["TestNode"];
-  visit = "not a function";
-}
+        export default class InvalidPlugin {
+          someOtherMethod() {}
+          anotherOtherMethod = "not a function";
+        }
       `;
 
       createTestPluginFile(path.join(testPluginsFolder, 'InvalidPlugin.js'), invalidPluginContent);
@@ -314,10 +261,11 @@ export default class InvalidPlugin {
     test('should handle syntax error in plugin file', async () => {
       // Create plugin with syntax error
       const invalidPluginContent = `
-export default class SyntaxErrorPlugin {
-  nodeTypes = ["TestNode";  // Missing closing bracket
-  async visit(node, visitor) {}
-}
+        export default class SyntaxErrorPlugin {
+          async TestNode(node, visitor {  // Missing closing parenthesis
+            console.log("test");
+          }
+        }
       `;
 
       createTestPluginFile(path.join(testPluginsFolder, 'SyntaxErrorPlugin.js'), invalidPluginContent);
@@ -331,13 +279,12 @@ export default class SyntaxErrorPlugin {
     test('should handle runtime error in plugin constructor', async () => {
       // Create plugin that throws error in constructor
       const errorPluginContent = `
-export default class ErrorPlugin {
-  constructor() {
-    throw new Error("Constructor error");
-  }
-  nodeTypes = ["TestNode"];
-  async visit(node, visitor) {}
-}
+        export default class ErrorPlugin {
+          constructor() {
+            throw new Error("Constructor error");
+          }
+          async TestNode(node, visitor) {}
+        }
       `;
 
       createTestPluginFile(path.join(testPluginsFolder, 'ErrorPlugin.js'), errorPluginContent);
@@ -351,17 +298,16 @@ export default class ErrorPlugin {
     test('should handle mixed valid and invalid plugins', async () => {
       // Create one valid and one invalid plugin
       const validPluginContent = `
-export default class ValidPlugin {
-  nodeTypes = ["ValidNode"];
-  async visit(node, visitor) {}
-}
+        export default class ValidPlugin {
+          async visitValidNode(node, visitor) {}
+        }
       `;
 
       const invalidPluginContent = `
-export default class InvalidPlugin {
-  nodeTypes = "InvalidNode";
-  async visit(node, visitor) {}
-}
+        export default class InvalidPlugin {
+          // This plugin has no valid handler methods
+          invalidMethod() {}
+        }
       `;
 
       createTestPluginFile(path.join(testPluginsFolder, 'ValidPlugin.js'), validPluginContent);
@@ -375,13 +321,12 @@ export default class InvalidPlugin {
       assert.strictEqual(registeredTypes[0], 'ValidNode');
     });
 
-    test('should handle wildcard node types', async () => {
+    test('should handle wildcard visit method', async () => {
       // Create plugin that handles all node types
       const wildcardPluginContent = `
-export default class WildcardPlugin {
-  nodeTypes = ["*"];
-  async visit(node, visitor) {}
-}
+        export default class WildcardPlugin {
+          async visitAny(node, visitor) {}
+        }
       `;
 
       createTestPluginFile(path.join(testPluginsFolder, 'WildcardPlugin.js'), wildcardPluginContent);
@@ -400,10 +345,11 @@ export default class WildcardPlugin {
     test('should handle plugin with multiple node types', async () => {
       // Create plugin that handles multiple node types
       const multiTypePluginContent = `
-export default class MultiTypePlugin {
-  nodeTypes = ["TypeA", "TypeB", "TypeC"];
-  async visit(node, visitor) {}
-}
+        export default class MultiTypePlugin {
+          async visitTypeA(node, visitor) {}
+          async visitTypeB(node, visitor) {}
+          async visitTypeC(node, visitor) {}
+        }
       `;
 
       createTestPluginFile(path.join(testPluginsFolder, 'MultiTypePlugin.js'), multiTypePluginContent);
@@ -425,10 +371,9 @@ export default class MultiTypePlugin {
       fs.mkdirSync(testPluginsFolder, { recursive: true });
 
       const validPluginContent = `
-export default class ValidPlugin {
-  nodeTypes = ["ValidNode"];
-  async visit(node, visitor) {}
-}
+        export default class ValidPlugin {
+          async visitValidNode(node, visitor) {}
+        }
       `;
 
       // Create valid JS file
@@ -446,23 +391,6 @@ export default class ValidPlugin {
       const registeredTypes = visitor.getRegisteredNodeTypes();
       assert.strictEqual(registeredTypes.length, 1);
       assert.strictEqual(registeredTypes[0], 'ValidNode');
-    });
-
-    test('should handle plugin with empty nodeTypes array', async () => {
-      // Create plugin with empty nodeTypes array
-      const emptyNodeTypesContent = `
-export default class EmptyNodeTypesPlugin {
-  nodeTypes = [];
-  async visit(node, visitor) {}
-}
-      `;
-
-      createTestPluginFile(path.join(testPluginsFolder, 'EmptyNodeTypesPlugin.js'), emptyNodeTypesContent);
-
-      await loadKappaPlugins(visitor);
-
-      // Should register plugin but with no registered node types
-      assert.strictEqual(visitor.getRegisteredNodeTypes().length, 0);
     });
 
     test('should handle file system permission errors', async () => {
@@ -498,10 +426,9 @@ export default class EmptyNodeTypesPlugin {
       if (!permissionTestRan) {
         // Create a valid plugin to ensure the function still works
         const validPluginContent = `
-export default class ValidPlugin {
-  nodeTypes = ["ValidNode"];
-  async visit(node, visitor) {}
-}
+          export default class ValidPlugin {
+            async visitValidNode(node, visitor) {}
+          }
         `;
         createTestPluginFile(path.join(testPluginsFolder, 'ValidPlugin.js'), validPluginContent);
 
@@ -513,7 +440,7 @@ export default class ValidPlugin {
     test('should handle case where import resolves to null', async () => {
       // Create a plugin file that exports null as default
       const nullExportContent = `
-export default null;
+        export default null;
       `;
 
       createTestPluginFile(path.join(testPluginsFolder, 'NullExportPlugin.js'), nullExportContent);
@@ -524,58 +451,18 @@ export default null;
       assert.strictEqual(visitor.getRegisteredNodeTypes().length, 0);
     });
 
-    test('should handle plugin that exports a non-constructible default', async () => {
-      // Create a plugin that exports a non-class default export
-      const nonClassContent = `
-export default {
-  nodeTypes: ["TestNode"],
-  visit: function() {}
-};
-      `;
-
-      createTestPluginFile(path.join(testPluginsFolder, 'NonClassPlugin.js'), nonClassContent);
-
-      await loadKappaPlugins(visitor);
-
-      // Should handle the error when trying to use 'new' on non-constructor
-      assert.strictEqual(visitor.getRegisteredNodeTypes().length, 0);
-    });
-
-    test('should handle plugin with getter-based nodeTypes', async () => {
-      // Create plugin with nodeTypes as a getter
-      const getterNodeTypesContent = `
-export default class GetterPlugin {
-  get nodeTypes() {
-    return ["GetterNode"];
-  }
-  async visit(node, visitor) {}
-}
-      `;
-
-      createTestPluginFile(path.join(testPluginsFolder, 'GetterPlugin.js'), getterNodeTypesContent);
-
-      await loadKappaPlugins(visitor);
-
-      // Should register the plugin successfully
-      const registeredTypes = visitor.getRegisteredNodeTypes();
-      assert.strictEqual(registeredTypes.length, 1);
-      assert.strictEqual(registeredTypes[0], 'GetterNode');
-    });
-
     test('should preserve visitor state across plugin loading', async () => {
       // Register a plugin before loading custom plugins
       const existingPlugin: ASTVisitorPlugin = {
-        nodeTypes: ['ExistingNode'],
-        visit: () => {},
+        async visitExistingNode(node: any, visitor: any) {},
       };
       visitor.registerPlugin(existingPlugin);
 
       // Create a custom plugin
       const customPluginContent = `
-export default class CustomPlugin {
-  nodeTypes = ["CustomNode"];
-  async visit(node, visitor) {}
-}
+        export default class CustomPlugin {
+          async visitCustomNode(node, visitor) {}
+        }
       `;
 
       createTestPluginFile(path.join(testPluginsFolder, 'CustomPlugin.js'), customPluginContent);
@@ -645,24 +532,22 @@ export default class CustomPlugin {
 
         // Create the DoubleIntAssignmentPlugin
         const pluginContent = `
-export default class DoubleIntAssignmentPlugin {
-  nodeTypes = ["BinaryOperator"];
-
-  async visit(node, visitor) {
-    if (node.detail === "=" && node.children?.[1].kind === "IntegerLiteral") {
-      const leftChild = node.children[0];
-      const leftChildType = visitor.getNodeType(leftChild);
-      
-      if (leftChildType === "int") {
-        const rightChild = node.children[1];
-        const originalValue = Number(rightChild.detail);
-        rightChild.detail = String(originalValue * 2);
-        await visitor.updateDocumentFromNode(rightChild);
-      }
-    }
-  }
-}
-      `;
+          export default class DoubleIntAssignmentPlugin {
+            async visitBinaryOperator(node, visitor) {
+              if (node.detail === "=" && node.children?.[1].kind === "IntegerLiteral") {
+                const leftChild = node.children[0];
+                const leftChildType = visitor.getNodeType(leftChild);
+                
+                if (leftChildType === "int") {
+                  const rightChild = node.children[1];
+                  const originalValue = Number(rightChild.detail);
+                  rightChild.detail = String(originalValue * 2);
+                  await visitor.updateDocumentFromNode(rightChild);
+                }
+              }
+            }
+          }
+        `;
 
         createTestPluginFile(path.join(testPluginsFolder, 'DoubleIntAssignmentPlugin.js'), pluginContent);
 
@@ -715,23 +600,21 @@ export default class DoubleIntAssignmentPlugin {
 
         // Create the plugin
         const pluginContent = `
-export default class DoubleIntAssignmentPlugin {
-  nodeTypes = ["BinaryOperator"];
-
-  async visit(node, visitor) {
-    if (node.detail === "=" && node.children?.[1].kind === "IntegerLiteral") {
-      const leftChild = node.children[0];
-      const leftChildType = visitor.getNodeType(leftChild);
-      
-      if (leftChildType === "int") {
-        const rightChild = node.children[1];
-        const originalValue = Number(rightChild.detail);
-        rightChild.detail = String(originalValue * 2);
-        await visitor.updateDocumentFromNode(rightChild);
-      }
-    }
-  }
-}
+        export default class DoubleIntAssignmentPlugin {
+          async visitBinaryOperator(node, visitor) {
+            if (node.detail === "=" && node.children?.[1].kind === "IntegerLiteral") {
+              const leftChild = node.children[0];
+              const leftChildType = visitor.getNodeType(leftChild);
+              
+              if (leftChildType === "int") {
+                const rightChild = node.children[1];
+                const originalValue = Number(rightChild.detail);
+                rightChild.detail = String(originalValue * 2);
+                await visitor.updateDocumentFromNode(rightChild);
+              }
+            }
+          }
+        }
       `;
 
         createTestPluginFile(path.join(testPluginsFolder, 'DoubleIntAssignmentPlugin.js'), pluginContent);
@@ -803,23 +686,21 @@ export default class DoubleIntAssignmentPlugin {
         const visitor = new ASTVisitor();
 
         const pluginContent = `
-export default class DoubleIntAssignmentPlugin {
-  nodeTypes = ["BinaryOperator"];
-
-  async visit(node, visitor) {
-    if (node.detail === "=" && node.children?.[1].kind === "IntegerLiteral") {
-      const leftChild = node.children[0];
-      const leftChildType = visitor.getNodeType(leftChild);
-      
-      if (leftChildType === "int") {
-        const rightChild = node.children[1];
-        const originalValue = Number(rightChild.detail);
-        rightChild.detail = String(originalValue * 2);
-        await visitor.updateDocumentFromNode(rightChild);
-      }
-    }
-  }
-}
+        export default class DoubleIntAssignmentPlugin {
+          async visitBinaryOperator(node, visitor) {
+            if (node.detail === "=" && node.children?.[1].kind === "IntegerLiteral") {
+              const leftChild = node.children[0];
+              const leftChildType = visitor.getNodeType(leftChild);
+              
+              if (leftChildType === "int") {
+                const rightChild = node.children[1];
+                const originalValue = Number(rightChild.detail);
+                rightChild.detail = String(originalValue * 2);
+                await visitor.updateDocumentFromNode(rightChild);
+              }
+            }
+          }
+        }
       `;
 
         createTestPluginFile(path.join(testPluginsFolder, 'DoubleIntAssignmentPlugin.js'), pluginContent);

@@ -3,21 +3,23 @@ import { ASTNode } from './clangd/vscode-clangd';
 
 /**
  * Plugin interface for the AST visitor.
- * Plugins can register to handle specific node types.
+ * Plugins can define methods for specific node types, similar to Babel visitors.
  */
 export interface ASTVisitorPlugin {
   /**
-   * The node types this plugin handles (e.g., 'BinaryOperator', 'IfStmt', etc.)
-   */
-  nodeTypes: string[];
-
-  /**
-   * The function to execute when visiting a node of the specified type
+   * Special method that handles all node types (wildcard)
    * @param node The AST node being visited
    * @param visitor The AST visitor instance (for accessing utility methods)
    * @param context Optional context object that can be passed between plugins
    */
-  visit(node: ASTNode, visitor: ASTVisitor, context?: any): void | Promise<void>;
+  visitAny?: (node: ASTNode, visitor: ASTVisitor, context?: any) => void | Promise<void>;
+
+  /**
+   * Dynamic methods for specific node types
+   * Method names should be prefixed with `visit` and match the node kind (e.g., BinaryOperator, IfStmt, etc.)
+   * Each visitor method should have the signature: (node: ASTNode, visitor: ASTVisitor, context?: any) => void | Promise<void>
+   */
+  [key: string]: ((node: ASTNode, visitor: ASTVisitor, context?: any) => void | Promise<void>) | any;
 }
 
 /**
@@ -34,11 +36,20 @@ export class ASTVisitor {
    * @param plugin The plugin to register
    */
   registerPlugin(plugin: ASTVisitorPlugin): void {
-    for (const nodeType of plugin.nodeTypes) {
-      if (!this.plugins.has(nodeType)) {
-        this.plugins.set(nodeType, []);
+    // Get all visitor methods from all plugins
+    const visitMethodNames = Object.getOwnPropertyNames(Object.getPrototypeOf(plugin))
+      .concat(Object.getOwnPropertyNames(plugin))
+      .filter((name) => name.startsWith('visit'));
+
+    // Register node handler methods
+    for (const methodName of visitMethodNames) {
+      const nodeKind = methodName === 'visitAny' ? '*' : methodName.replace('visit', '');
+
+      if (!this.plugins.has(nodeKind)) {
+        this.plugins.set(nodeKind, []);
       }
-      this.plugins.get(nodeType)!.push(plugin);
+
+      this.plugins.get(nodeKind)!.push(plugin);
     }
   }
 
@@ -47,16 +58,14 @@ export class ASTVisitor {
    * @param plugin The plugin to unregister
    */
   unregisterPlugin(plugin: ASTVisitorPlugin): void {
-    for (const nodeType of plugin.nodeTypes) {
-      const pluginsForType = this.plugins.get(nodeType);
-      if (pluginsForType) {
-        const index = pluginsForType.indexOf(plugin);
-        if (index !== -1) {
-          pluginsForType.splice(index, 1);
-        }
-        if (pluginsForType.length === 0) {
-          this.plugins.delete(nodeType);
-        }
+    // Remove the plugin from all node type lists
+    for (const [nodeType, pluginsForType] of this.plugins.entries()) {
+      const index = pluginsForType.indexOf(plugin);
+      if (index !== -1) {
+        pluginsForType.splice(index, 1);
+      }
+      if (pluginsForType.length === 0) {
+        this.plugins.delete(nodeType);
       }
     }
   }
@@ -71,7 +80,7 @@ export class ASTVisitor {
     const pluginsForType = this.plugins.get(node.kind);
     if (pluginsForType) {
       for (const plugin of pluginsForType) {
-        await plugin.visit(node, this, context);
+        await plugin[`visit${node.kind}`]?.(node, this, context);
       }
     }
 
@@ -79,7 +88,7 @@ export class ASTVisitor {
     const wildcardPlugins = this.plugins.get('*');
     if (wildcardPlugins) {
       for (const plugin of wildcardPlugins) {
-        await plugin.visit(node, this, context);
+        await plugin['visitAny']?.(node, this, context);
       }
     }
   }
