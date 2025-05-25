@@ -15,7 +15,7 @@
  *   /* 0x04 *\/ s32 y;
  * } Vec2_32; /* size: 0x08 *\/
  *
- * typedef struct {       // <-- Let's run the plugin on this record
+ * typedef struct {            // <-- Let's run the plugin on this record
  *   u8 foo;
  *   Vec2_32 qValue;
  *   u16 bar;
