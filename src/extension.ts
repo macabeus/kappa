@@ -28,12 +28,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
       return;
     }
 
-    const visitor = new ASTVisitor();
+    const visitor = new ASTVisitor(client);
 
     // Load custom plugins from kappa-plugins folder
     await loadKappaPlugins(visitor);
 
     await visitor.walk(item);
+
+    await visitor.applyPendingEdits();
   });
 
   return apiInstance;
