@@ -1,3 +1,47 @@
+/**
+ * Plugin to add the Q notation to assignments for a `Vec2_32` field in a record.
+ *
+ * For example, for the given file:
+ *
+ * ```c
+ * #include <stdio.h>
+ *
+ * #define Q_24_8(n) ((s32)((n) * 256))
+ * #define Q(n) Q_24_8(n)
+ *
+ * typedef int32_t s32;
+ *
+ * typedef struct {
+ *   s32 x;
+ *   s32 y;
+ * } Vec2_32;
+ *
+ * struct Example {
+ *   Vec2_32 qValue;
+ * };
+ *
+ * int main() {               // <-- Let's run the plugin on this function
+ *   struct Example example;
+ *   example.qValue.x = 0x100;
+ *   example.qValue.y = 0x80;
+ *
+ *   return 0;
+ * }
+ * ```
+ *
+ * The function will be transformed to:
+ *
+ * ```c
+ * int main() {
+ *   struct Example example;
+ *   example.qValue.x = Q(1);
+ *   example.qValue.y = Q(0.5);
+ *
+ *   return 0;
+ * }
+ * ```
+ */
+
 export default class ApplyQNotationPlugin {
   async visitBinaryOperator(node, visitor) {
     if (node.detail === '=' && node.children?.[1].kind === 'IntegerLiteral') {
@@ -11,7 +55,7 @@ export default class ApplyQNotationPlugin {
           const rawValue = Number(rightChild.detail);
           const qNotationValue = rawValue / 256;
 
-          await visitor.updateDocumentNodeWithRawCode(rightChild, `Q(${qNotationValue})`);
+          visitor.updateDocumentNodeWithRawCode(rightChild, `Q(${qNotationValue})`);
         }
       }
     }

@@ -1,5 +1,8 @@
 import * as vscode from 'vscode';
 import { ASTNode } from './clangd/vscode-clangd';
+import { BaseLanguageClient } from 'vscode-languageclient';
+import { DefinitionRequest } from 'vscode-languageserver-protocol';
+import { ASTRequestType } from './clangd/ast';
 
 /**
  * Plugin interface for the AST visitor.
@@ -27,9 +30,13 @@ export interface ASTVisitorPlugin {
  * based on node types.
  */
 export class ASTVisitor {
+  private client: BaseLanguageClient;
+  private pendingEdits: vscode.WorkspaceEdit[] = [];
   private plugins: Map<string, ASTVisitorPlugin[]> = new Map();
 
-  constructor() {}
+  constructor(client: BaseLanguageClient) {
+    this.client = client;
+  }
 
   /**
    * Register a plugin to handle specific node types
@@ -181,11 +188,11 @@ export class ASTVisitor {
   }
 
   /**
-   * Update the VS Code document with new code from an AST node
+   * Schedule to update the VS Code document with new code from an AST node
    * @param node The AST node containing the new code and range information
-   * @returns Promise<boolean> indicating whether the update was successful
+   * @returns boolean indicating whether the scheduling was successful
    */
-  async updateDocumentFromNode(node: ASTNode): Promise<boolean> {
+  updateDocumentFromNode(node: ASTNode): boolean {
     try {
       // Check if node has the required information
       if (!node.range || !node.detail) {
@@ -212,16 +219,10 @@ export class ASTVisitor {
       // Replace the text at the node's range with the new detail
       edit.replace(activeEditor.document.uri, vscodeRange, node.detail);
 
-      // Apply the edit
-      const success = await vscode.workspace.applyEdit(edit);
+      // Schedule the edit
+      this.pendingEdits.push(edit);
 
-      if (success) {
-        console.log(`Successfully updated document with new code: ${node.detail}`);
-      } else {
-        console.error('Failed to apply workspace edit');
-      }
-
-      return success;
+      return true;
     } catch (error) {
       console.error('Error updating document from node:', error);
       return false;
@@ -229,12 +230,12 @@ export class ASTVisitor {
   }
 
   /**
-   * Update the VS Code document from the node with raw code
+   * Schedule to update the VS Code document from the node with raw code
    * @param node The AST node containing the range information
    * @param raw The raw code to insert
-   * @returns Promise<boolean> indicating whether the update was successful
+   * @returns boolean indicating whether the scheduling was successful
    */
-  async updateDocumentNodeWithRawCode(node: ASTNode, raw: string): Promise<boolean> {
+  updateDocumentNodeWithRawCode(node: ASTNode, raw: string): boolean {
     try {
       // Check if node has the required information
       if (!node.range) {
@@ -261,19 +262,173 @@ export class ASTVisitor {
       // Replace the text at the node's range with the new detail
       edit.replace(activeEditor.document.uri, vscodeRange, raw);
 
-      // Apply the edit
-      const success = await vscode.workspace.applyEdit(edit);
+      // Schedule the edit
+      this.pendingEdits.push(edit);
 
-      if (success) {
-        console.log(`Successfully updated document with new code: ${node.detail}`);
-      } else {
-        console.error('Failed to apply workspace edit');
-      }
-
-      return success;
+      return true;
     } catch (error) {
       console.error('Error updating document from node:', error);
       return false;
+    }
+  }
+
+  /**
+   * Schedule to add a leading comment before an AST node
+   * @param node The AST node to add Comment before
+   * @param Comment The Comment text to add (without delimiters)
+   * @returns boolean indicating whether the scheduling was successful
+   */
+  addLeadingComment(node: ASTNode, Comment: string): boolean {
+    try {
+      if (!node.range) {
+        console.warn('Node missing range information for adding leading Comment');
+        return false;
+      }
+
+      const activeEditor = vscode.window.activeTextEditor;
+      if (!activeEditor) {
+        console.warn('No active text editor found');
+        return false;
+      }
+
+      const CommentText = `/* ${Comment} */ `;
+      const insertPosition = new vscode.Position(node.range.start.line, node.range.start.character);
+      const edit = new vscode.WorkspaceEdit();
+      edit.insert(activeEditor.document.uri, insertPosition, CommentText);
+      this.pendingEdits.push(edit);
+
+      return true;
+    } catch (error) {
+      console.error('Error adding leading Comment:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Schedule to add a trailing comment
+   * @param node The AST node to add comment after
+   * @param Comment The Comment text to add (without delimiters)
+   * @param atEndOfLine If true, adds the comment at the end of the line instead of at right after the node
+   * @returns boolean indicating whether the scheduling was successful
+   */
+  addTrailingComment(node: ASTNode, Comment: string, atEndOfLine: boolean = false): boolean {
+    try {
+      if (!node.range) {
+        console.warn('Node missing range information for adding trailing Comment');
+        return false;
+      }
+
+      const activeEditor = vscode.window.activeTextEditor;
+      if (!activeEditor) {
+        console.warn('No active text editor found');
+        return false;
+      }
+
+      const CommentText = ` /* ${Comment} */`;
+      let insertPosition: vscode.Position;
+
+      if (atEndOfLine) {
+        // Add comment at the end of the line
+        const document = activeEditor.document;
+        const line = document.lineAt(node.range.end.line);
+        insertPosition = new vscode.Position(node.range.end.line, line.text.length);
+      } else {
+        // Add comment at the end of the node (original behavior)
+        insertPosition = new vscode.Position(node.range.end.line, node.range.end.character);
+      }
+
+      const edit = new vscode.WorkspaceEdit();
+      edit.insert(activeEditor.document.uri, insertPosition, CommentText);
+      this.pendingEdits.push(edit);
+
+      return true;
+    } catch (error) {
+      console.error('Error adding trailing Comment:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get the trailing comment from the line where the node ends
+   * @param node The AST node to get the trailing comment from
+   * @returns The trailing comment text if found, or an empty string if not found
+   */
+  async getTrailingComment(node: ASTNode): Promise<string> {
+    if (!node.range) {
+      console.warn('Node missing range information for adding trailing Comment');
+      return '';
+    }
+
+    const activeEditor = vscode.window.activeTextEditor;
+    if (!activeEditor) {
+      console.warn('No active text editor found');
+      return '';
+    }
+
+    const line = activeEditor.document.lineAt(node.range.end.line);
+
+    const comment = /\/\*(.*)\*\//.exec(line.text);
+    if (!comment || comment.length < 2) {
+      return '';
+    }
+
+    return comment[1].trim();
+  }
+
+  /**
+   * Get the definition of an AST node
+   * @param node The AST node to get the definition for
+   * @returns The definition AST node if found, or null if not found
+   */
+  async getDefinition(node: ASTNode): Promise<ASTNode | null> {
+    if (!node.range) {
+      console.warn('Node missing range information for adding trailing Comment');
+      return null;
+    }
+
+    const activeEditor = vscode.window.activeTextEditor;
+    if (!activeEditor) {
+      console.warn('No active text editor found');
+      return null;
+    }
+
+    const converter = this.client.code2ProtocolConverter;
+    const position = new vscode.Position(node.range.start.line, node.range.start.character);
+
+    const definition = await this.client.sendRequest(
+      DefinitionRequest.type,
+      converter.asTextDocumentPositionParams(activeEditor.document, position),
+    );
+
+    if (!definition || !Array.isArray(definition) || definition.length === 0) {
+      console.warn('No definition found for the node');
+      return null;
+    }
+
+    if (!('range' in definition[0])) {
+      console.warn('Definition does not contain a range');
+      return null;
+    }
+
+    const item = await this.client.sendRequest(ASTRequestType, {
+      textDocument: converter.asTextDocumentIdentifier(activeEditor.document),
+      range: definition[0].range,
+    });
+
+    return item;
+  }
+
+  /**
+   * Apply all pending edits to the active document
+   * @returns Promise that resolves when all edits are applied
+   */
+  async applyPendingEdits(): Promise<void> {
+    const promises = this.pendingEdits.map((edit) => vscode.workspace.applyEdit(edit));
+    this.pendingEdits = [];
+    const result = await Promise.allSettled(promises);
+    const failed = result.filter((r) => r.status === 'rejected');
+    if (failed.length > 0) {
+      vscode.window.showErrorMessage(`Failed to apply ${failed.length} edits. Check the console for details.`);
     }
   }
 }

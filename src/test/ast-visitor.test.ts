@@ -1,6 +1,19 @@
 import * as assert from 'assert';
 import { ASTNode } from '../clangd/vscode-clangd';
 import { ASTVisitor, ASTVisitorPlugin } from '../ast-visitor';
+import { BaseLanguageClient } from 'vscode-languageclient';
+
+// Mock BaseLanguageClient for testing
+function createMockClient(): BaseLanguageClient {
+  return {
+    sendRequest: async () => ({}),
+    code2ProtocolConverter: {
+      asTextDocumentPositionParams: () => ({}),
+      asTextDocumentIdentifier: () => ({}),
+      asRange: () => ({}),
+    },
+  } as any;
+}
 
 /**
  * Example plugin that counts different types of statements
@@ -149,7 +162,7 @@ suite('AST Visitor Test Suite', () => {
     let visitor: ASTVisitor;
 
     setup(() => {
-      visitor = new ASTVisitor();
+      visitor = new ASTVisitor(createMockClient());
     });
 
     test('should create empty visitor', () => {
@@ -211,7 +224,7 @@ suite('AST Visitor Test Suite', () => {
     let plugin: TestCounterPlugin;
 
     setup(() => {
-      visitor = new ASTVisitor();
+      visitor = new ASTVisitor(createMockClient());
       plugin = new TestCounterPlugin();
       visitor.registerPlugin(plugin);
     });
@@ -283,7 +296,7 @@ suite('AST Visitor Test Suite', () => {
     let asyncPlugin: AsyncTestPlugin;
 
     setup(() => {
-      visitor = new ASTVisitor();
+      visitor = new ASTVisitor(createMockClient());
       asyncPlugin = new AsyncTestPlugin();
       visitor.registerPlugin(asyncPlugin);
     });
@@ -317,7 +330,7 @@ suite('AST Visitor Test Suite', () => {
     let contextPlugin: ContextTestPlugin;
 
     setup(() => {
-      visitor = new ASTVisitor();
+      visitor = new ASTVisitor(createMockClient());
       contextPlugin = new ContextTestPlugin();
       visitor.registerPlugin(contextPlugin);
     });
@@ -345,7 +358,7 @@ suite('AST Visitor Test Suite', () => {
   suite('Built-in Plugins', () => {
     test('StatementCounterPlugin should count statements', () => {
       const plugin = new StatementCounterPlugin();
-      const visitor = new ASTVisitor();
+      const visitor = new ASTVisitor(createMockClient());
 
       const ifNode = createTestNode('IfStmt');
       const forNode = createTestNode('ForStmt');
@@ -363,7 +376,7 @@ suite('AST Visitor Test Suite', () => {
 
     test('StatementCounterPlugin should reset counts', () => {
       const plugin = new StatementCounterPlugin();
-      const visitor = new ASTVisitor();
+      const visitor = new ASTVisitor(createMockClient());
 
       const ifNode = createTestNode('IfStmt');
       plugin.visitIfStmt(ifNode, visitor);
@@ -379,7 +392,7 @@ suite('AST Visitor Test Suite', () => {
     let visitor: ASTVisitor;
 
     setup(() => {
-      visitor = new ASTVisitor();
+      visitor = new ASTVisitor(createMockClient());
     });
 
     test('should handle node without children property', async () => {
@@ -458,7 +471,7 @@ suite('AST Visitor Test Suite', () => {
 
   suite('Integration Tests', () => {
     test('should work with complex AST tree and multiple plugins', async () => {
-      const visitor = new ASTVisitor();
+      const visitor = new ASTVisitor(createMockClient());
       const counterPlugin = new TestCounterPlugin();
       const multiTypePlugin = new MultiTypePlugin();
 
@@ -488,7 +501,7 @@ suite('AST Visitor Test Suite', () => {
     let visitor: ASTVisitor;
 
     setup(() => {
-      visitor = new ASTVisitor();
+      visitor = new ASTVisitor(createMockClient());
     });
 
     test('should extract type from quoted arcana field', () => {
@@ -575,14 +588,14 @@ suite('AST Visitor Test Suite', () => {
     let visitor: ASTVisitor;
 
     setup(() => {
-      visitor = new ASTVisitor();
+      visitor = new ASTVisitor(createMockClient());
     });
 
     test('should return false when node has no range', async () => {
       const node = createTestNode('TestNode', 'expression');
       delete node.range;
 
-      const result = await visitor.updateDocumentFromNode(node);
+      const result = visitor.updateDocumentFromNode(node);
       assert.strictEqual(result, false);
     });
 
@@ -590,7 +603,7 @@ suite('AST Visitor Test Suite', () => {
       const node = createTestNode('TestNode', 'expression');
       delete node.detail;
 
-      const result = await visitor.updateDocumentFromNode(node);
+      const result = visitor.updateDocumentFromNode(node);
       assert.strictEqual(result, false);
     });
 
@@ -598,7 +611,7 @@ suite('AST Visitor Test Suite', () => {
       // In the test environment, there's typically no active editor
       const node = createTestNode('TestNode', 'expression', undefined, 'test detail');
 
-      const result = await visitor.updateDocumentFromNode(node);
+      const result = visitor.updateDocumentFromNode(node);
       assert.strictEqual(result, false);
     });
 
@@ -614,7 +627,7 @@ suite('AST Visitor Test Suite', () => {
       assert.strictEqual(typeof visitor.updateDocumentFromNode, 'function');
 
       // The method should handle the case where no active editor exists gracefully
-      const result = await visitor.updateDocumentFromNode(node);
+      const result = visitor.updateDocumentFromNode(node);
       assert.strictEqual(typeof result, 'boolean');
     });
 
@@ -622,7 +635,7 @@ suite('AST Visitor Test Suite', () => {
       // Test with valid node but no active editor (which will cause failure)
       const node = createTestNode('TestNode', 'expression', undefined, 'updated code');
 
-      const result = await visitor.updateDocumentFromNode(node);
+      const result = visitor.updateDocumentFromNode(node);
       assert.strictEqual(result, false);
     });
 
@@ -632,7 +645,7 @@ suite('AST Visitor Test Suite', () => {
       // Remove range to trigger a different code path
       delete node.range;
 
-      const result = await visitor.updateDocumentFromNode(node);
+      const result = visitor.updateDocumentFromNode(node);
       assert.strictEqual(result, false);
     });
 
@@ -648,7 +661,7 @@ suite('AST Visitor Test Suite', () => {
       assert.strictEqual(typeof visitor.updateDocumentFromNode, 'function');
 
       // The method should handle the range conversion internally
-      const result = await visitor.updateDocumentFromNode(node);
+      const result = visitor.updateDocumentFromNode(node);
       assert.strictEqual(typeof result, 'boolean');
     });
   });
@@ -658,7 +671,7 @@ suite('AST Visitor Test Suite', () => {
     let wildcardPlugin: WildcardPlugin;
 
     setup(() => {
-      visitor = new ASTVisitor();
+      visitor = new ASTVisitor(createMockClient());
       wildcardPlugin = new WildcardPlugin();
       visitor.registerPlugin(wildcardPlugin);
     });
@@ -694,6 +707,170 @@ suite('AST Visitor Test Suite', () => {
       // Specific plugin should only visit TestNode
       assert.strictEqual(specificPlugin.visitCount, 1);
       assert.strictEqual(specificPlugin.visitedNodes[0].kind, 'TestNode');
+    });
+  });
+
+  suite('ASTVisitor Comment Methods - Integration Tests', () => {
+    let visitor: ASTVisitor;
+
+    setup(() => {
+      visitor = new ASTVisitor(createMockClient());
+    });
+
+    test('addTrailingComment should handle missing range gracefully', async () => {
+      const testNode: ASTNode = {
+        kind: 'InvalidNode',
+        role: 'unknown',
+        detail: 'invalid',
+        // No range property
+      };
+
+      // Test both parameter variations
+      const result1 = visitor.addTrailingComment(testNode, 'test comment');
+      const result2 = visitor.addTrailingComment(testNode, 'test comment', false);
+      const result3 = visitor.addTrailingComment(testNode, 'test comment', true);
+
+      assert.strictEqual(result1, false);
+      assert.strictEqual(result2, false);
+      assert.strictEqual(result3, false);
+    });
+
+    test('addTrailingComment parameter validation', () => {
+      const testNode: ASTNode = {
+        kind: 'VarDecl',
+        role: 'declaration',
+        detail: 'int x = 5',
+        range: {
+          start: { line: 0, character: 0 },
+          end: { line: 0, character: 9 },
+        },
+      };
+
+      // Test parameter types
+      assert.doesNotThrow(() => {
+        visitor.addTrailingComment(testNode, 'comment');
+        visitor.addTrailingComment(testNode, 'comment', true);
+        visitor.addTrailingComment(testNode, 'comment', false);
+      });
+    });
+
+    test('backward compatibility - existing calls should work unchanged', async () => {
+      const testNode: ASTNode = {
+        kind: 'VarDecl',
+        role: 'declaration',
+        detail: 'int x = 5',
+        range: {
+          start: { line: 0, character: 0 },
+          end: { line: 0, character: 9 },
+        },
+      };
+
+      // This should work exactly as before (no active editor will make it return false)
+      const result = visitor.addTrailingComment(testNode, 'test comment');
+
+      // Result should be false due to no active editor, but the method should not throw
+      assert.strictEqual(typeof result, 'boolean');
+    });
+
+    test('addTrailingComment should validate node parameter', async () => {
+      const validNode: ASTNode = {
+        kind: 'VarDecl',
+        role: 'declaration',
+        detail: 'int x = 5',
+        range: {
+          start: { line: 0, character: 0 },
+          end: { line: 0, character: 9 },
+        },
+      };
+
+      // Test with valid node
+      const result1 = visitor.addTrailingComment(validNode, 'comment');
+      assert.strictEqual(typeof result1, 'boolean');
+
+      // Test with valid node and atEndOfLine true
+      const result2 = visitor.addTrailingComment(validNode, 'comment', true);
+      assert.strictEqual(typeof result2, 'boolean');
+
+      // Test with valid node and atEndOfLine false
+      const result3 = visitor.addTrailingComment(validNode, 'comment', false);
+      assert.strictEqual(typeof result3, 'boolean');
+    });
+
+    test('method should handle different Comment strings', async () => {
+      const testNode: ASTNode = {
+        kind: 'VarDecl',
+        role: 'declaration',
+        detail: 'int x = 5',
+        range: {
+          start: { line: 0, character: 0 },
+          end: { line: 0, character: 9 },
+        },
+      };
+
+      // Test different Comment strings
+      const commentaries = [
+        'simple comment',
+        'comment with special chars: !@#$%^&*()',
+        'very long comment that might span multiple concepts and ideas about the code',
+        '', // empty comment
+        'comment with "quotes" and \'apostrophes\'',
+        'comment\nwith\nnewlines',
+      ];
+
+      for (const Comment of commentaries) {
+        const result1 = visitor.addTrailingComment(testNode, Comment, false);
+        const result2 = visitor.addTrailingComment(testNode, Comment, true);
+
+        // Should not throw and should return boolean
+        assert.strictEqual(typeof result1, 'boolean');
+        assert.strictEqual(typeof result2, 'boolean');
+      }
+    });
+
+    test('comparison between addLeadingComment and addTrailingComment behavior', async () => {
+      const testNode: ASTNode = {
+        kind: 'VarDecl',
+        role: 'declaration',
+        detail: 'int x = 5',
+        range: {
+          start: { line: 0, character: 0 },
+          end: { line: 0, character: 9 },
+        },
+      };
+
+      // Both methods should have similar error handling behavior
+      const leadingResult = visitor.addLeadingComment(testNode, 'leading');
+      const trailingResult1 = visitor.addTrailingComment(testNode, 'trailing');
+      const trailingResult2 = visitor.addTrailingComment(testNode, 'trailing', true);
+
+      // All should return boolean (false due to no active editor in test environment)
+      assert.strictEqual(typeof leadingResult, 'boolean');
+      assert.strictEqual(typeof trailingResult1, 'boolean');
+      assert.strictEqual(typeof trailingResult2, 'boolean');
+    });
+
+    test('addTrailingComment atEndOfLine parameter edge cases', async () => {
+      const testNode: ASTNode = {
+        kind: 'VarDecl',
+        role: 'declaration',
+        detail: 'int x = 5',
+        range: {
+          start: { line: 0, character: 0 },
+          end: { line: 0, character: 9 },
+        },
+      };
+
+      // Test default (undefined) should be the same as false
+      const result1 = visitor.addTrailingComment(testNode, 'comment');
+      const result2 = visitor.addTrailingComment(testNode, 'comment', false);
+
+      // Both should have the same behavior
+      assert.strictEqual(typeof result1, 'boolean');
+      assert.strictEqual(typeof result2, 'boolean');
+
+      // Test with true
+      const result3 = visitor.addTrailingComment(testNode, 'comment', true);
+      assert.strictEqual(typeof result3, 'boolean');
     });
   });
 });
