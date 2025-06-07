@@ -3,18 +3,65 @@ import { activateClangd } from './clangd/activate-clangd';
 import { ClangdExtension } from './clangd/vscode-clangd';
 import { ASTVisitor } from './ast-visitor';
 import { ASTRequestType } from './clangd/ast';
-import { loadKappaPlugins } from './load-kappa-plugins';
+import { runTestsForCurrentKappaPlugin, loadKappaPlugins } from './kappa-plugins';
+import { ClangdExtensionImpl } from './clangd/api';
+
+// Constants for configuration
+const CLANGD_CHECK_INTERVAL = 100;
+const CLANGD_CHECK_TIMEOUT = 30_000;
+
+/**
+ * Waits for the clangd client to be running with timeout
+ */
+async function waitForClangdClient(clangd: ClangdExtensionImpl): Promise<ClangdExtensionImpl> {
+  const startTime = Date.now();
+
+  return new Promise<ClangdExtensionImpl>((resolve, reject) => {
+    const check = () => {
+      if (clangd.client?.isRunning()) {
+        resolve(clangd);
+        return;
+      }
+
+      if (Date.now() - startTime > CLANGD_CHECK_TIMEOUT) {
+        reject(new Error('Timeout waiting for clangd client to start'));
+        return;
+      }
+
+      setTimeout(check, CLANGD_CHECK_INTERVAL);
+    };
+
+    check();
+  });
+}
+
+/**
+ * Gets the clangd client instance, throwing an error if not available
+ */
+async function getClangdClient(apiInstance: Promise<ClangdExtensionImpl>): Promise<any> {
+  const api = await apiInstance;
+  const client = api.client;
+
+  if (!client) {
+    throw new Error('Clangd client is not available');
+  }
+
+  return client;
+}
 
 export async function activate(context: vscode.ExtensionContext): Promise<ClangdExtension> {
-  const apiInstance = await activateClangd(context);
+  let apiInstance: Promise<ClangdExtensionImpl>;
+
+  try {
+    const clangd = await activateClangd(context);
+    apiInstance = waitForClangdClient(clangd);
+  } catch (error) {
+    vscode.window.showErrorMessage(`Failed to activate clangd: ${error}`);
+    throw error;
+  }
 
   vscode.commands.registerCommand('kappa.runKappaPlugins', async () => {
-    const client = apiInstance.client;
-    if (!client) {
-      vscode.window.showErrorMessage('Clangd client is not available.');
-      return;
-    }
-
+    const client = await getClangdClient(apiInstance);
     const converter = client.code2ProtocolConverter;
     const editor = vscode.window.activeTextEditor;
 
@@ -36,6 +83,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
     await visitor.walk(item);
 
     await visitor.applyPendingEdits();
+  });
+
+  vscode.commands.registerCommand('kappa.runTestsForCurrentKappaPlugin', async () => {
+    const client = await getClangdClient(apiInstance);
+    const visitor = new ASTVisitor(client);
+    await runTestsForCurrentKappaPlugin(visitor);
+
+    vscode.window.showInformationMessage('Tests for current Kappa plugin completed.');
   });
 
   return apiInstance;

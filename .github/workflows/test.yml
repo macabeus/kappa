@@ -1,0 +1,42 @@
+name: Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Set up Clang
+        uses: egor-tensin/setup-clang@v1
+
+      - name: Install clangd
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clangd-16
+          sudo update-alternatives --install /usr/bin/clangd clangd /usr/bin/clangd-16 100
+
+      - name: Compile project
+        run: yarn run compile
+
+      - name: Run Tests
+        uses: GabrielBB/xvfb-action@v1
+        with:
+          run: yarn test

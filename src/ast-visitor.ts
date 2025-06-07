@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ASTNode } from './clangd/vscode-clangd';
+import type { ASTNode } from './clangd/vscode-clangd';
 import { BaseLanguageClient } from 'vscode-languageclient';
 import { DefinitionRequest } from 'vscode-languageserver-protocol';
 import { ASTRequestType } from './clangd/ast';
