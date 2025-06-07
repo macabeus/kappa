@@ -34,6 +34,10 @@
       {
         "command": "kappa.runKappaPlugins",
         "title": "Run Kappa Plugins"
+      },
+      {
+        "command": "kappa.runTestsForCurrentKappaPlugin",
+        "title": "Run tests for the current Kappa Plugin"
       }
     ],
     "configuration": {
@@ -155,16 +159,17 @@
     "package": "yarn run check-types && yarn run lint && yarn run format:check && node esbuild.js --production",
     "compile-tests": "tsc -p . --outDir out",
     "watch-tests": "tsc -p . -w --outDir out",
-    "pretest": "yarn run compile-tests && yarn run compile && yarn run lint",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "vscode-test"
+    "test": "wdio run ./src/test/wdio.conf.ts"
   },
   "packageManager": "yarn@1.22.22+sha1.ac34549e6aa8e7ead463a7407e1c7390f61a6610",
   "dependencies": {
     "@clangd/install": "0.1.20",
+    "dedent": "^1.6.0",
+    "diff": "^8.0.2",
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
@@ -173,12 +178,16 @@
     "@types/vscode": "^1.100.0",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",
-    "@vscode/test-cli": "^0.0.10",
-    "@vscode/test-electron": "^2.5.2",
+    "@wdio/cli": "^9.15.0",
+    "@wdio/globals": "^9.15.0",
+    "@wdio/local-runner": "^9.15.0",
+    "@wdio/mocha-framework": "^9.15.0",
+    "@wdio/spec-reporter": "^9.15.0",
     "esbuild": "^0.25.3",
     "eslint": "^9.25.1",
     "npm-run-all": "^4.1.5",
     "prettier": "^3.5.3",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "wdio-vscode-service": "^6.1.3"
   }
 }

@@ -94,6 +94,92 @@ const getSize = async (node, visitor) => {
 };
 
 export default class AddOffsetCommentsPlugin {
+  get testsSpec() {
+    return [
+      {
+        name: 'Simple',
+        description: 'It adds offset comments to a self-contained struct',
+        given: `
+          #include <stdint.h>
+
+          typedef uint8_t u8;
+          typedef uint16_t u16;
+          typedef int16_t s32;
+
+          //       *
+          typedef struct {
+            u8 foo;
+            u16 bar;
+            s32 baz;
+          } Example;
+        `,
+        then: `
+          #include <stdint.h>
+
+          typedef uint8_t u8;
+          typedef uint16_t u16;
+          typedef int16_t s32;
+
+          //       *
+          typedef struct {
+            /* 0x00 */ u8 foo;
+            /* 0x02 */ u16 bar;
+            /* 0x04 */ s32 baz;
+          } Example; /* size: 0x08 */
+        `,
+      },
+
+      {
+        name: 'Transitive Struct',
+        description: 'It adds offset comments to a struct that uses another struct',
+        given: `
+          #include <stdint.h>
+
+          typedef uint8_t u8;
+          typedef uint16_t u16;
+          typedef int16_t s32;
+          typedef int16_t u32;
+
+          typedef struct {
+            /* 0x00 */ s32 x;
+            /* 0x04 */ s32 y;
+          } Vec2_32; /* size: 0x08 */
+
+          //       *
+          typedef struct {
+            u8 foo;
+            Vec2_32 qValue;
+            u16 bar;
+            s32 baz;
+            u32 qux;
+          } Aotento;
+        `,
+        then: `
+          #include <stdint.h>
+
+          typedef uint8_t u8;
+          typedef uint16_t u16;
+          typedef int16_t s32;
+          typedef int16_t u32;
+
+          typedef struct {
+            /* 0x00 */ s32 x;
+            /* 0x04 */ s32 y;
+          } Vec2_32; /* size: 0x08 */
+
+          //       *
+          typedef struct {
+            /* 0x00 */ u8 foo;
+            /* 0x08 */ Vec2_32 qValue;
+            /* 0x10 */ u16 bar;
+            /* 0x14 */ s32 baz;
+            /* 0x18 */ u32 qux;
+          } Aotento; /* size: 0x20 */
+        `,
+      },
+    ];
+  }
+
   async visitRecord(node, visitor) {
     let lastOffset = 0;
 
@@ -105,7 +191,7 @@ export default class AddOffsetCommentsPlugin {
         // Calculate aligned offset for this field
         const alignedOffset = getAlignedOffset(lastOffset, size);
 
-        await visitor.addLeadingComment(child, `0x${alignedOffset.toString(16).padStart(2, '0').toUpperCase()}`);
+        visitor.addLeadingComment(child, `0x${alignedOffset.toString(16).padStart(2, '0').toUpperCase()}`);
 
         lastOffset = alignedOffset + size;
       }
@@ -113,6 +199,6 @@ export default class AddOffsetCommentsPlugin {
 
     // Apply final alignment to the total struct size
     const finalSize = getAlignedOffset(lastOffset, MEMORY_ALIGNMENT);
-    await visitor.addTrailingComment(node, `size: 0x${finalSize.toString(16).padStart(2, '0').toUpperCase()}`, true);
+    visitor.addTrailingComment(node, `size: 0x${finalSize.toString(16).padStart(2, '0').toUpperCase()}`, true);
   }
 }

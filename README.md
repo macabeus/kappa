@@ -37,6 +37,7 @@ player.x = Q(1);
 2. Select a function
 3. Run the action `Run Kappa Plugins`
 
-### Plugin Development
+## Contributing
 
-Want to create your own Kappa Plugin? Check out the [`example-kappa-plugins`](./example-kappa-plugins) directory for examples and templates.
+- [Creating new plugins to use with the VS Code extension](./docs/create-your-own-kappa-plugin.md)
+- [Developing the VS Code extension itself](./docs/developing-kappa-vscode-extension.md)

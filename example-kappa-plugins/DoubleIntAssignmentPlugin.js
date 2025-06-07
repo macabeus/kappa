@@ -5,7 +5,8 @@
  *
  * ```c
  * int main() {   // <-- Let's run the plugin on this function
- *   int x = 42;
+ *   int x;
+ *   x = 42;
  *   return 0;
  * }
  * ```
@@ -14,13 +15,39 @@
  *
  * ```c
  * int main() {
- *   int x = 84;
+ *   int x;
+ *   x = 84;
  *   return 0;
  * }
  * ```
  */
 
 export default class DoubleIntAssignmentPlugin {
+  get testsSpec() {
+    return [
+      {
+        name: 'Double integer assignment',
+        description: 'Replaces integer assignments with its double value',
+        given: `
+          //   *
+          int main() {
+            int x;
+            x = 42;
+            return 0;
+          }
+        `,
+        then: `
+          //   *
+          int main() {
+            int x;
+            x = 84;
+            return 0;
+          }
+        `,
+      },
+    ];
+  }
+
   async visitBinaryOperator(node, visitor) {
     if (node.detail === '=' && node.children?.[1].kind === 'IntegerLiteral') {
       const leftChild = node.children[0];

@@ -3,3 +3,7 @@ dist
 node_modules
 .vscode-test/
 *.vsix
+
+.wdio-vscode-service
+test-workspace/*
+!test-workspace/.keep
