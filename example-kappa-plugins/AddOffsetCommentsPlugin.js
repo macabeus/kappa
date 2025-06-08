@@ -152,7 +152,7 @@ export default class AddOffsetCommentsPlugin {
             u16 bar;
             s32 baz;
             u32 qux;
-          } Aotento;
+          } Example;
         `,
         then: `
           #include <stdint.h>
@@ -174,7 +174,7 @@ export default class AddOffsetCommentsPlugin {
             /* 0x10 */ u16 bar;
             /* 0x14 */ s32 baz;
             /* 0x18 */ u32 qux;
-          } Aotento; /* size: 0x20 */
+          } Example; /* size: 0x20 */
         `,
       },
     ];

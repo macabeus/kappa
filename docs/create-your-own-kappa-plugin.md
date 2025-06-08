@@ -26,13 +26,16 @@ export default class MyPlugin {
 
 ### Visitor Methods
 
-Kappa uses the visitor pattern to traverse the AST. You can implement methods for specific node types:
+A plugin uses the visitor pattern to traverse the AST. You can implement methods the following methods:
 
 - **`visit{NodeType}(node, visitor)`** - Called when a node of type `{NodeType}` is encountered
 - **`visitAny(node, visitor)`** - Called for every node (useful for debugging)
 
 **Finding Node Types:**
-The easiest way to discover available node types is by exploring the AST using the [`vscode-clangd`](https://github.com/clangd/vscode-clangd) extension.
+The are two easy ways to to discover available node types:
+
+- using the `visitAny(node, visitor)` method and printing `node.kind`
+- by exploring the AST using the [`vscode-clangd`](https://github.com/clangd/vscode-clangd) extension
 
 **Example:**
 
@@ -152,116 +155,85 @@ The plugin will execute at the column position of the asterisk on the following 
 
 ## Complete Examples
 
-Here's a complete plugin that converts hex values to Q notation:
+Here's a complete plugin that converts literal integer with Q notation on assignments for `Vec2_32` fields:
 
 ```js
-export default class AddOffsetCommentsPlugin {
+export default class ApplyQNotationPlugin {
   get testsSpec() {
     return [
       {
-        name: 'Simple',
-        description: 'It adds offset comments to a self-contained struct',
+        name: 'Convert hex to Q notation',
+        description: 'Replaces integer assignments with Q notation for Vec2_32 fields',
         given: `
-          #include <stdint.h>
+          #include <stdio.h>
 
-          typedef uint8_t u8;
-          typedef uint16_t u16;
-          typedef int16_t s32;
+          #define Q_24_8(n) ((s32)((n) * 256))
+          #define Q(n) Q_24_8(n)
 
-          //       *
-          typedef struct {
-            u8 foo;
-            u16 bar;
-            s32 baz;
-          } Example;
-        `,
-        then: `
-          #include <stdint.h>
-
-          typedef uint8_t u8;
-          typedef uint16_t u16;
-          typedef int16_t s32;
-
-          //       *
-          typedef struct {
-            /* 0x00 */ u8 foo;
-            /* 0x02 */ u16 bar;
-            /* 0x04 */ s32 baz;
-          } Example; /* size: 0x08 */
-        `,
-      },
-
-      {
-        name: 'Transitive Struct',
-        description: 'It adds offset comments to a struct that uses another struct',
-        given: `
-          #include <stdint.h>
-
-          typedef uint8_t u8;
-          typedef uint16_t u16;
-          typedef int16_t s32;
-          typedef int16_t u32;
+          typedef int32_t s32;
 
           typedef struct {
-            /* 0x00 */ s32 x;
-            /* 0x04 */ s32 y;
-          } Vec2_32; /* size: 0x08 */
+            s32 x;
+            s32 y;
+          } Vec2_32;
 
-          //       *
-          typedef struct {
-            u8 foo;
+          struct Example {
             Vec2_32 qValue;
-            u16 bar;
-            s32 baz;
-            u32 qux;
-          } Aotento;
+          };
+
+          //   *
+          int main() {
+            struct Example example;
+            example.qValue.x = 0x100;
+            example.qValue.y = 0x80;
+            return 0;
+          }
         `,
         then: `
-          #include <stdint.h>
+          #include <stdio.h>
 
-          typedef uint8_t u8;
-          typedef uint16_t u16;
-          typedef int16_t s32;
-          typedef int16_t u32;
+          #define Q_24_8(n) ((s32)((n) * 256))
+          #define Q(n) Q_24_8(n)
+
+          typedef int32_t s32;
 
           typedef struct {
-            /* 0x00 */ s32 x;
-            /* 0x04 */ s32 y;
-          } Vec2_32; /* size: 0x08 */
+            s32 x;
+            s32 y;
+          } Vec2_32;
 
-          //       *
-          typedef struct {
-            /* 0x00 */ u8 foo;
-            /* 0x08 */ Vec2_32 qValue;
-            /* 0x10 */ u16 bar;
-            /* 0x14 */ s32 baz;
-            /* 0x18 */ u32 qux;
-          } Aotento; /* size: 0x20 */
+          struct Example {
+            Vec2_32 qValue;
+          };
+
+          //   *
+          int main() {
+            struct Example example;
+            example.qValue.x = Q(1);
+            example.qValue.y = Q(0.5);
+            return 0;
+          }
         `,
       },
     ];
   }
 
-  async visitRecord(node, visitor) {
-    let lastOffset = 0;
+  async visitBinaryOperator(node, visitor) {
+    if (node.detail === '=' && node.children?.[1].kind === 'IntegerLiteral') {
+      const leftChild = node.children[0];
 
-    for (const child of node.children) {
-      if (child.kind === 'Field') {
-        const type = visitor.getNodeType(child);
-        const size = mapTypeToSize[type] ?? (await getSize(child, visitor));
+      if (leftChild.children?.[0] && visitor.getNodeType(leftChild.children[0]) === 'Vec2_32') {
+        const leftChildType = visitor.getNodeType(leftChild);
 
-        // Calculate aligned offset for this field
-        const alignedOffset = getAlignedOffset(lastOffset, size);
+        if (leftChildType === 's32') {
+          const rightChild = node.children[1];
+          const rawValue = Number(rightChild.detail);
+          const qNotationValue = rawValue / 256;
 
-        await visitor.addLeadingComment(child, `0x${alignedOffset.toString(16).padStart(2, '0').toUpperCase()}`);
-
-        lastOffset = alignedOffset + size;
+          visitor.updateDocumentNodeWithRawCode(rightChild, `Q(${qNotationValue})`);
+        }
       }
     }
-
-    // Apply final alignment to the total struct size
-    const finalSize = getAlignedOffset(lastOffset, MEMORY_ALIGNMENT);
-    await visitor.addTrailingComment(node, `size: 0x${finalSize.toString(16).padStart(2, '0').toUpperCase()}`, true);
   }
 }
 ```
