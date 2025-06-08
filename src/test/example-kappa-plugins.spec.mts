@@ -6,6 +6,7 @@ const exampleKappaPlugins = [
   'ApplyQNotationPlugin.js',
   'DoubleIntAssignmentPlugin.js',
   'DummyPlugin.js',
+  'LiftVariableDeclarationsPlugin.js',
 ];
 
 describe('Kappa VS Code Extension E2E Tests', () => {

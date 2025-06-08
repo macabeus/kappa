@@ -333,6 +333,77 @@ export class ASTVisitor {
   }
 
   /**
+   * Schedule to insert a line before the given node
+   * @param node The AST node to add the text before
+   * @param text The text to insert
+   * @param keepIdentation If true, keeps the indentation of the node's line
+   * @returns boolean indicating whether the scheduling was successful
+   */
+  insertLineBeforeNode(node: ASTNode, text: string, keepIdentation = true): boolean {
+    try {
+      if (!node.range) {
+        console.warn('Node missing range information for inserting text after node');
+        return false;
+      }
+
+      const activeEditor = vscode.window.activeTextEditor;
+      if (!activeEditor) {
+        console.warn('No active text editor found');
+        return false;
+      }
+
+      const insertPosition = new vscode.Position(node.range.end.line, 0);
+
+      const line = activeEditor.document.lineAt(node.range.end.line);
+      const indent = keepIdentation ? line.text.match(/^\s*/)?.[0] || '' : '';
+
+      this.pendingEdits.insert(activeEditor.document.uri, insertPosition, `${indent}${text}\n`);
+
+      return true;
+    } catch (error) {
+      console.error('Error inserting text after node:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Schedule to apply regex a replacement in the node's range
+   * @param node The AST node to add comment after
+   * @param regex The regex pattern to match
+   * @param replace The string to replace the matched text with
+   * @returns boolean indicating whether the scheduling was successful
+   */
+  applyRegexReplace(node: ASTNode, regex: RegExp, replace: string): boolean {
+    try {
+      if (!node.range) {
+        console.warn('Node missing range information for applying regex replacement');
+        return false;
+      }
+
+      const activeEditor = vscode.window.activeTextEditor;
+      if (!activeEditor) {
+        console.warn('No active text editor found');
+        return false;
+      }
+
+      const vscodeRange = new vscode.Range(
+        new vscode.Position(node.range.start.line, node.range.start.character),
+        new vscode.Position(node.range.end.line, node.range.end.character),
+      );
+
+      const text = activeEditor.document.getText(vscodeRange);
+      const newText = text.replace(regex, replace);
+
+      this.pendingEdits.replace(activeEditor.document.uri, vscodeRange, newText);
+
+      return true;
+    } catch (error) {
+      console.error('Error applying regex replacement:', error);
+      return false;
+    }
+  }
+
+  /**
    * Get the trailing comment from the line where the node ends
    * @param node The AST node to get the trailing comment from
    * @returns The trailing comment text if found, or an empty string if not found

@@ -91,6 +91,26 @@ Add a trailing comment after the specified node. When `atEndOfLine` is `true`, t
 visitor.addTrailingComment(node, 'Example', true);
 ```
 
+#### `visitor.insertLineBeforeNode(node: ASTNode, text: string, keepIdentation: boolean = true)`
+
+Insert a new line of text before the specified node. When `keepIdentation` is `true`, the inserted text will maintain the same indentation as the node's line.
+
+**Example:**
+
+```js
+visitor.insertLineBeforeNode(node, 'printf("Debug: entering function");');
+```
+
+#### `visitor.applyRegexReplace(node: ASTNode, regex: RegExp, replace: string)`
+
+Apply a regular expression replacement to the text content of the specified node's range.
+
+**Example:**
+
+```js
+visitor.applyRegexReplace(node, /\bint\b/g, 'int32_t');
+```
+
 ### Test Specification
 
 The `testsSpec` getter defines test cases for your plugin:
