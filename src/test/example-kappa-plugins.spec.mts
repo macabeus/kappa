@@ -2,6 +2,7 @@ import { expect } from '@wdio/globals';
 import { runOnVSCode } from './utils.mjs';
 
 const exampleKappaPlugins = [
+  'AddCheckOffsetMacroPlugin.js',
   'AddOffsetCommentsPlugin.js',
   'ApplyQNotationPlugin.js',
   'DoubleIntAssignmentPlugin.js',

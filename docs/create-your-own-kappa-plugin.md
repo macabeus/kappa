@@ -101,6 +101,16 @@ Insert a new line of text before the specified node. When `keepIdentation` is `t
 visitor.insertLineBeforeNode(node, 'printf("Debug: entering function");');
 ```
 
+#### `visitor.insertLineAfterNode(node: ASTNode, text: string, keepIdentation: boolean = true)`
+
+Insert a new line of text after the specified node. When `keepIdentation` is `true`, the inserted text will maintain the same indentation as the node's line.
+
+**Example:**
+
+```js
+visitor.insertLineAfterNode(node, 'printf("Debug: exiting function");');
+```
+
 #### `visitor.applyRegexReplace(node: ASTNode, regex: RegExp, replace: string)`
 
 Apply a regular expression replacement to the text content of the specified node's range.

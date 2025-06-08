@@ -367,6 +367,40 @@ export class ASTVisitor {
   }
 
   /**
+   * Schedule to insert a line after the given node
+   * @param node The AST node to add the text before
+   * @param text The text to insert
+   * @param keepIdentation If true, keeps the indentation of the node's line
+   * @returns boolean indicating whether the scheduling was successful
+   */
+  insertLineAfterNode(node: ASTNode, text: string, keepIdentation = true): boolean {
+    try {
+      if (!node.range) {
+        console.warn('Node missing range information for inserting text after node');
+        return false;
+      }
+
+      const activeEditor = vscode.window.activeTextEditor;
+      if (!activeEditor) {
+        console.warn('No active text editor found');
+        return false;
+      }
+
+      const insertPosition = new vscode.Position(node.range.end.line + 1, 0);
+
+      const line = activeEditor.document.lineAt(node.range.end.line);
+      const indent = keepIdentation ? line.text.match(/^\s*/)?.[0] || '' : '';
+
+      this.pendingEdits.insert(activeEditor.document.uri, insertPosition, `${indent}${text}\n`);
+
+      return true;
+    } catch (error) {
+      console.error('Error inserting text after node:', error);
+      return false;
+    }
+  }
+
+  /**
    * Schedule to apply regex a replacement in the node's range
    * @param node The AST node to add comment after
    * @param regex The regex pattern to match
