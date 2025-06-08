@@ -31,7 +31,7 @@ export interface ASTVisitorPlugin {
  */
 export class ASTVisitor {
   private client: BaseLanguageClient;
-  private pendingEdits: vscode.WorkspaceEdit[] = [];
+  private pendingEdits = new vscode.WorkspaceEdit();
   private plugins: Map<string, ASTVisitorPlugin[]> = new Map();
 
   constructor(client: BaseLanguageClient) {
@@ -213,14 +213,8 @@ export class ASTVisitor {
         new vscode.Position(node.range.end.line, node.range.end.character),
       );
 
-      // Create a workspace edit
-      const edit = new vscode.WorkspaceEdit();
-
-      // Replace the text at the node's range with the new detail
-      edit.replace(activeEditor.document.uri, vscodeRange, node.detail);
-
-      // Schedule the edit
-      this.pendingEdits.push(edit);
+      // Schedule to replace the text at the node's range with the new detail
+      this.pendingEdits.replace(activeEditor.document.uri, vscodeRange, node.detail);
 
       return true;
     } catch (error) {
@@ -256,14 +250,8 @@ export class ASTVisitor {
         new vscode.Position(node.range.end.line, node.range.end.character),
       );
 
-      // Create a workspace edit
-      const edit = new vscode.WorkspaceEdit();
-
-      // Replace the text at the node's range with the new detail
-      edit.replace(activeEditor.document.uri, vscodeRange, raw);
-
-      // Schedule the edit
-      this.pendingEdits.push(edit);
+      // Schedule to replace the text at the node's range with the new detail
+      this.pendingEdits.replace(activeEditor.document.uri, vscodeRange, raw);
 
       return true;
     } catch (error) {
@@ -293,9 +281,7 @@ export class ASTVisitor {
 
       const CommentText = `/* ${Comment} */ `;
       const insertPosition = new vscode.Position(node.range.start.line, node.range.start.character);
-      const edit = new vscode.WorkspaceEdit();
-      edit.insert(activeEditor.document.uri, insertPosition, CommentText);
-      this.pendingEdits.push(edit);
+      this.pendingEdits.insert(activeEditor.document.uri, insertPosition, CommentText);
 
       return true;
     } catch (error) {
@@ -337,9 +323,7 @@ export class ASTVisitor {
         insertPosition = new vscode.Position(node.range.end.line, node.range.end.character);
       }
 
-      const edit = new vscode.WorkspaceEdit();
-      edit.insert(activeEditor.document.uri, insertPosition, CommentText);
-      this.pendingEdits.push(edit);
+      this.pendingEdits.insert(activeEditor.document.uri, insertPosition, CommentText);
 
       return true;
     } catch (error) {
@@ -423,12 +407,9 @@ export class ASTVisitor {
    * @returns Promise that resolves when all edits are applied
    */
   async applyPendingEdits(): Promise<void> {
-    const promises = this.pendingEdits.map((edit) => vscode.workspace.applyEdit(edit));
-    this.pendingEdits = [];
-    const result = await Promise.allSettled(promises);
-    const failed = result.filter((r) => r.status === 'rejected');
-    if (failed.length > 0) {
-      vscode.window.showErrorMessage(`Failed to apply ${failed.length} edits. Check the console for details.`);
+    const result = await vscode.workspace.applyEdit(this.pendingEdits);
+    if (!result) {
+      vscode.window.showErrorMessage(`Failed to apply the edit. Check the console for details.`);
     }
   }
 }
