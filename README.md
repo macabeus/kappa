@@ -9,8 +9,13 @@ https://github.com/user-attachments/assets/6ec32aba-6e94-4011-bbcb-2c4ea7c807c3
 
 > ⚠️ **Work in Progress**: This extension is currently under active development. Features and APIs may change.
 
+- **✅ AI Prompt Builder:** Craft high-quality prompts to guide AI in decompiling a function.
 - **✅ Automated Code Fixes:** Use plugins to automatically update the code’s AST, eliminating repetitive tasks and correcting common errors.
-- **🚧 AI Prompt Builder:** Craft prompts to guide AI in decompiling functions _(coming soon)_.
+- **🚧 Agent Mode:** Automatically decompile a given function, until it reache 100% match _(coming soon)_.
+
+## ✨ AI Prompt Builder
+
+TODO
 
 ## 🔌 Kappa Plugins
 
