@@ -10,9 +10,9 @@ const exampleKappaPlugins = [
   'LiftVariableDeclarationsPlugin.js',
 ];
 
-describe('Kappa VS Code Extension E2E Tests', () => {
+describe('Kappa Plugins', () => {
   exampleKappaPlugins.forEach((pluginName) => {
-    it(`run kappa plugin tests for "${pluginName}"`, async () => {
+    it(`runs kappa plugin tests for "${pluginName}"`, async () => {
       const testsReport = await runOnVSCode(async function fn(
         { vscode, copyFile, openFile, runTestsForCurrentKappaPlugin, workspaceUri },
         pluginName,

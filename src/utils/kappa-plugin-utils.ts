@@ -1,14 +1,4 @@
-import * as vscode from 'vscode';
-import { ASTVisitorPlugin } from './ast-visitor';
-
-export function getWorkspaceRoot(): string | undefined {
-  const workspaceFolders = vscode.workspace.workspaceFolders;
-  if (!workspaceFolders || workspaceFolders.length === 0) {
-    return;
-  }
-
-  return workspaceFolders[0].uri.fsPath;
-}
+import type { ASTVisitorPlugin } from '../ast-visitor';
 
 export async function loadKappaPlugin(pluginPath: string): Promise<
   | {

@@ -2,6 +2,78 @@
 # yarn lockfile v1
 
 
+"@ast-grep/lang-c@^0.0.2":
+  version "0.0.2"
+  resolved "https://registry.yarnpkg.com/@ast-grep/lang-c/-/lang-c-0.0.2.tgz#58b087b6d21391b180622966addd40cb92684b85"
+  integrity sha512-PAhImywspkfubiHbgSg0SRJKxirPovjKYcJkdlpieN0EjpSBrqXmAhi4Ku8J3AumegMC0n/J6KmRzjM1VpfplA==
+  dependencies:
+    "@ast-grep/setup-lang" "0.0.3"
+
+"@ast-grep/napi-darwin-arm64@0.38.5":
+  version "0.38.5"
+  resolved "https://registry.yarnpkg.com/@ast-grep/napi-darwin-arm64/-/napi-darwin-arm64-0.38.5.tgz#8d9f96acea01e39b757dbfb1050c6f88f239e7c6"
+  integrity sha512-Ky60f2O2Od7ySDLF8QOPX5PvdNw/1DGlqxLvKYF1wJUMAY3/7ZRGxDSZ+m3BwvYCMhvKCLWSthQ3eMuZyEUZzQ==
+
+"@ast-grep/napi-darwin-x64@0.38.5":
+  version "0.38.5"
+  resolved "https://registry.yarnpkg.com/@ast-grep/napi-darwin-x64/-/napi-darwin-x64-0.38.5.tgz#d4b742dadb7a3d5146d3dc8a2b12de4d044ff6b4"
+  integrity sha512-4AOenxM5lC9nzSnTPmmDDYUG3Rrh4VjbmWf6JbZPhvhdgMnKigbFVvv2BqhzxBtI8MxJ86jNmuI3KW1QYc+V1A==
+
+"@ast-grep/napi-linux-arm64-gnu@0.38.5":
+  version "0.38.5"
+  resolved "https://registry.yarnpkg.com/@ast-grep/napi-linux-arm64-gnu/-/napi-linux-arm64-gnu-0.38.5.tgz#e020646c00850d5bb9c9efa1fe9e9b343c89f437"
+  integrity sha512-8ePpkH15Patg4PdwreB64YXaIynyaNm6RbnkMKnZ6jFYnAa00NeWZ7lv1vdD01q5pzI4k3jx6deBGEvgRZ8hww==
+
+"@ast-grep/napi-linux-arm64-musl@0.38.5":
+  version "0.38.5"
+  resolved "https://registry.yarnpkg.com/@ast-grep/napi-linux-arm64-musl/-/napi-linux-arm64-musl-0.38.5.tgz#c6cd2d5cc3d31cadf8aacf2dff6888be3e5ad55c"
+  integrity sha512-TG1e6AgRXksJuBMEVKV75h6aNoaE1IpIR4WB0CM6VTK84vjAlCh70XvFbqicowpCPJkWoQ2fhy4Ux+B8YykpJA==
+
+"@ast-grep/napi-linux-x64-gnu@0.38.5":
+  version "0.38.5"
+  resolved "https://registry.yarnpkg.com/@ast-grep/napi-linux-x64-gnu/-/napi-linux-x64-gnu-0.38.5.tgz#9c9bb3222ac127b55f99ad03dfbe2d5e8615b752"
+  integrity sha512-BD8PEBras1EfbRHpZXUXJrAfaXcCL2ZZTgk+BNd/p//CWGqVQRbbVib5irRRETJf804ElXPD7uLV6IWeQP5u+w==
+
+"@ast-grep/napi-linux-x64-musl@0.38.5":
+  version "0.38.5"
+  resolved "https://registry.yarnpkg.com/@ast-grep/napi-linux-x64-musl/-/napi-linux-x64-musl-0.38.5.tgz#dd3327cdeef0e087ff65b683c6740919591a520b"
+  integrity sha512-fJyehG0xPe9Hvp64o4N1gVIbJ3oBXvMaN81pXSTcMP9QI5v/H40igZ4XoPkobSGittPr7x3ooDv9WIwuzc4pxA==
+
+"@ast-grep/napi-win32-arm64-msvc@0.38.5":
+  version "0.38.5"
+  resolved "https://registry.yarnpkg.com/@ast-grep/napi-win32-arm64-msvc/-/napi-win32-arm64-msvc-0.38.5.tgz#1ed141dddd84e3fbb3e5e9b57a5275ad3a03c990"
+  integrity sha512-25wyag97kE6nv1hHaNuPgORYbSUndgsAUKCSarsEDI5BBp6h0YDdFY+VzM+SH62F0RBqj0bkpud38UblftfgFw==
+
+"@ast-grep/napi-win32-ia32-msvc@0.38.5":
+  version "0.38.5"
+  resolved "https://registry.yarnpkg.com/@ast-grep/napi-win32-ia32-msvc/-/napi-win32-ia32-msvc-0.38.5.tgz#3223e64e868cd447f396697f07bb351a84f179b1"
+  integrity sha512-9ZmG9xAxxxMbDvhf2QQ0bq/e9BJ+TVXFsj9Fp5Ju7dkyCRFwLGquL/RapE/jz/L11zfu+Z7EVZfmp1RnmGxpWw==
+
+"@ast-grep/napi-win32-x64-msvc@0.38.5":
+  version "0.38.5"
+  resolved "https://registry.yarnpkg.com/@ast-grep/napi-win32-x64-msvc/-/napi-win32-x64-msvc-0.38.5.tgz#3863fb70270072db37150e54f8e727972d0644d5"
+  integrity sha512-DNeLIwkK/BKyYX5ymmeioqpXOXGcOxj2OgLpWiyk/VawwQe6uGgrH97k3pRku513dzHKayfizvU2igjj9oTJuA==
+
+"@ast-grep/napi@^0.38.5":
+  version "0.38.5"
+  resolved "https://registry.yarnpkg.com/@ast-grep/napi/-/napi-0.38.5.tgz#e30abb3350d33ea56dc6505b492c8e47a3f91ba0"
+  integrity sha512-lhuekQ5khQd70GaHatR+Ge4AcYtdYjzO372TlXI7cQOdvDcrL5MOR7CnQXvUe1cuJHTx2UJd42KK6z6Qza8Tjw==
+  optionalDependencies:
+    "@ast-grep/napi-darwin-arm64" "0.38.5"
+    "@ast-grep/napi-darwin-x64" "0.38.5"
+    "@ast-grep/napi-linux-arm64-gnu" "0.38.5"
+    "@ast-grep/napi-linux-arm64-musl" "0.38.5"
+    "@ast-grep/napi-linux-x64-gnu" "0.38.5"
+    "@ast-grep/napi-linux-x64-musl" "0.38.5"
+    "@ast-grep/napi-win32-arm64-msvc" "0.38.5"
+    "@ast-grep/napi-win32-ia32-msvc" "0.38.5"
+    "@ast-grep/napi-win32-x64-msvc" "0.38.5"
+
+"@ast-grep/setup-lang@0.0.3":
+  version "0.0.3"
+  resolved "https://registry.yarnpkg.com/@ast-grep/setup-lang/-/setup-lang-0.0.3.tgz#b817fb38905ddf12f612e767d0ad2abb8d05085b"
+  integrity sha512-+ZNOuf0r7ABVwOANrrQpUrUv7xyuhsZGyQ88WZCH/euQmIEvSH3JsUFevg/60M7hi8NVh4vfSQs6ajTpumSzxg==
+
 "@babel/code-frame@^7.12.13", "@babel/code-frame@^7.21.4":
   version "7.27.1"
   resolved "https://registry.npmjs.org/@babel/code-frame/-/code-frame-7.27.1.tgz"
@@ -621,6 +693,18 @@
   version "1.5.0"
   resolved "https://registry.npmjs.org/@jridgewell/sourcemap-codec/-/sourcemap-codec-1.5.0.tgz"
   integrity sha512-gv3ZRaISU3fjPAgNsriBRqGWQL6quFx04YMPW/zD8XMLsU32mhCCbfbO6KZFLjvYpCZ8zyDEgqsgf+PwPaM7GQ==
+
+"@kwsites/file-exists@^1.1.1":
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/@kwsites/file-exists/-/file-exists-1.1.1.tgz#ad1efcac13e1987d8dbaf235ef3be5b0d96faa99"
+  integrity sha512-m9/5YGR18lIwxSFDwfE3oA7bWuq9kdau6ugN4H2rJeyhFQZcG9AgSHkQtSD15a8WvTgfz9aikZMrKPHvbpqFiw==
+  dependencies:
+    debug "^4.1.1"
+
+"@kwsites/promise-deferred@^1.1.1":
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/@kwsites/promise-deferred/-/promise-deferred-1.1.1.tgz#8ace5259254426ccef57f3175bc64ed7095ed919"
+  integrity sha512-GaHYm+c0O9MjZRu0ongGBRbinu8gVAMd2UZjji6jVmqKtZluZnptXGWhz1E8j8D2HJ3f/yMxKAUC0b+57wncIw==
 
 "@lukeed/ms@^2.0.1":
   version "2.0.2"
@@ -1475,7 +1559,7 @@ bare-stream@^2.6.4:
 
 base64-js@^1.3.1:
   version "1.5.1"
-  resolved "https://registry.npmjs.org/base64-js/-/base64-js-1.5.1.tgz"
+  resolved "https://registry.yarnpkg.com/base64-js/-/base64-js-1.5.1.tgz#1b1b440160a5bf7ad40b650f095963481903930a"
   integrity sha512-AKpaYlHn8t4SVbOHCy+b5+KKgvR4vrsD8vbvrbiQJps7fKDTkjkDry6ji0rUJjC0kzbNePLwzxq8iypo41qeWA==
 
 basic-ftp@^5.0.2:
@@ -1602,7 +1686,7 @@ callsites@^3.0.0:
 
 camelcase@^6.0.0:
   version "6.3.0"
-  resolved "https://registry.npmjs.org/camelcase/-/camelcase-6.3.0.tgz"
+  resolved "https://registry.yarnpkg.com/camelcase/-/camelcase-6.3.0.tgz#5685b95eb209ac9c0c177467778c9c84df58ba9a"
   integrity sha512-Gmy6FhYlCY7uOElZUSbxo2UCDH8owEk996gkbrpsgGtrJLM3J7jGxl9Ic7Qwwj4ivOE5AWZWRMecDdF7hqGjFA==
 
 chalk@^2.4.1:
@@ -1900,7 +1984,7 @@ data-view-byte-offset@^1.0.1:
     es-errors "^1.3.0"
     is-data-view "^1.0.1"
 
-debug@4, debug@^4.1.1, debug@^4.3.1, debug@^4.3.2, debug@^4.3.4, debug@^4.3.5, debug@^4.4.1:
+debug@4, debug@^4.1.1, debug@^4.3.1, debug@^4.3.2, debug@^4.3.4, debug@^4.3.5, debug@^4.4.0, debug@^4.4.1:
   version "4.4.1"
   resolved "https://registry.npmjs.org/debug/-/debug-4.4.1.tgz"
   integrity sha512-KcKCqiftBJcZr++7ykoDIEwSa3XWowTfNPo92BYxjXiyYEVrUQh2aLyhxBCwww+heortUFxEJYcRzosstTEBYQ==
@@ -4009,7 +4093,7 @@ mocha@^10.3.0:
 
 ms@^2.1.3:
   version "2.1.3"
-  resolved "https://registry.npmjs.org/ms/-/ms-2.1.3.tgz"
+  resolved "https://registry.yarnpkg.com/ms/-/ms-2.1.3.tgz#574c8138ce1d2b5861f0b44579dbadd60c6615b2"
   integrity sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==
 
 mute-stream@^1.0.0:
@@ -4034,7 +4118,7 @@ nice-try@^1.0.4:
 
 node-domexception@^1.0.0:
   version "1.0.0"
-  resolved "https://registry.npmjs.org/node-domexception/-/node-domexception-1.0.0.tgz"
+  resolved "https://registry.yarnpkg.com/node-domexception/-/node-domexception-1.0.0.tgz#6888db46a1f71c0b76b3f7555016b63fe64766e5"
   integrity sha512-/jKZoMpw0F8GRwl4/eLROPA3cfcXtLApP0QzLmUT/HuPCZWyB7IY9ZrMeKw2O/nFIqPQB3PVM9aYm0F312AXDQ==
 
 node-fetch@^2.7.0:
@@ -5013,6 +5097,15 @@ signal-exit@^4.0.1, signal-exit@^4.1.0:
   version "4.1.0"
   resolved "https://registry.npmjs.org/signal-exit/-/signal-exit-4.1.0.tgz"
   integrity sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw==
+
+simple-git@^3.28.0:
+  version "3.28.0"
+  resolved "https://registry.yarnpkg.com/simple-git/-/simple-git-3.28.0.tgz#c6345b2e387880f8450788a1e388573366ae48ac"
+  integrity sha512-Rs/vQRwsn1ILH1oBUy8NucJlXmnnLeLCfcvbSehkPzbv3wwoFWIdtfd6Ndo6ZPhlPsCZ60CPI4rxurnwAa+a2w==
+  dependencies:
+    "@kwsites/file-exists" "^1.1.1"
+    "@kwsites/promise-deferred" "^1.1.1"
+    debug "^4.4.0"
 
 slash@^3.0.0:
   version "3.0.0"
