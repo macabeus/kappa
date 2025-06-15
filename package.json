@@ -28,6 +28,19 @@
           "**/MSVC/*/include/**"
         ],
         "firstLine": "^/[/*].*-\\*-\\s*C\\+\\+\\s*-\\*-.*"
+      },
+      {
+        "id": "arm",
+        "aliases": [
+          "ARM Assembly",
+          "arm"
+        ],
+        "extensions": [
+          ".s",
+          ".S",
+          ".asm"
+        ],
+        "configuration": "./language-configuration.json"
       }
     ],
     "commands": [
@@ -38,6 +51,10 @@
       {
         "command": "kappa.runTestsForCurrentKappaPlugin",
         "title": "Run tests for the current Kappa Plugin"
+      },
+      {
+        "command": "kappa.buildDecompilePrompt",
+        "title": "Build a prompt to decompile it"
       }
     ],
     "configuration": {
@@ -152,21 +169,19 @@
   },
   "scripts": {
     "vscode:prepublish": "yarn run package",
-    "compile": "yarn run check-types && yarn run lint && yarn run format:check && node esbuild.js",
-    "watch": "npm-run-all -p watch:*",
-    "watch:esbuild": "node esbuild.js --watch",
-    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "build": "yarn format && yarn run check-types && yarn run lint && yarn run format:check && node esbuild.js",
     "package": "yarn run check-types && yarn run lint && yarn run format:check && node esbuild.js --production",
-    "compile-tests": "tsc -p . --outDir out",
-    "watch-tests": "tsc -p . -w --outDir out",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "pretest": "yarn build",
     "test": "wdio run ./src/test/wdio.conf.ts"
   },
   "packageManager": "yarn@1.22.22+sha1.ac34549e6aa8e7ead463a7407e1c7390f61a6610",
   "dependencies": {
+    "@ast-grep/lang-c": "^0.0.2",
+    "@ast-grep/napi": "^0.38.5",
     "@clangd/install": "0.1.20",
     "dedent": "^1.6.0",
     "diff": "^8.0.2",
@@ -187,6 +202,7 @@
     "eslint": "^9.25.1",
     "npm-run-all": "^4.1.5",
     "prettier": "^3.5.3",
+    "simple-git": "^3.28.0",
     "typescript": "^5.8.3",
     "wdio-vscode-service": "^6.1.3"
   }

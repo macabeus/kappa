@@ -5,14 +5,31 @@
 
 VS Code extension designed to help you when decompiling a codebase.
 
-https://github.com/user-attachments/assets/6ec32aba-6e94-4011-bbcb-2c4ea7c807c3
-
 > ⚠️ **Work in Progress**: This extension is currently under active development. Features and APIs may change.
 
+- **✅ AI Prompt Builder:** Craft high-quality prompts to guide AI in decompiling a function.
 - **✅ Automated Code Fixes:** Use plugins to automatically update the code’s AST, eliminating repetitive tasks and correcting common errors.
-- **🚧 AI Prompt Builder:** Craft prompts to guide AI in decompiling functions _(coming soon)_.
+- **🚧 Agent Mode:** Automatically decompile a given function, until it reache 100% match _(coming soon)_.
+- **🚧 Integration with [decomp.me](https://decomp.me/):** Create a new scratch from VS Code _(coming soon)_.
+
+## ✨ AI Prompt Builder
+
+https://github.com/user-attachments/assets/75d801e0-3b28-45b6-adcb-04a4b92c2063
+
+The **AI Prompt Builder** creates context-aware prompts for decompiling a assembly function. It automatically analyzes your codebase to provide the AI with an accurate context for this task.
+
+### How to use it
+
+1. Select an assembly function
+2. Run the code action "Build a prompt to decompile it"
+3. Get a comprehensive prompt that includes:
+   - Real examples from your codebase: Functions that have already been decompiled (found via Git history)
+   - Function signatures of dependencies used in the target assembly
+   - Clear instructions and formatting rules for the AI
 
 ## 🔌 Kappa Plugins
+
+https://github.com/user-attachments/assets/ca5beb10-fc7a-423e-a5b4-ba009eac7dad
 
 **Kappa plugins** are scripts that transform the Abstract Syntax Tree (AST) of C/C++ code blocks. They can be used to:
 
@@ -31,7 +48,9 @@ player.x = 256;
 player.x = Q(1);
 ```
 
-### How to use
+Check more examples on [`./example-kappa-plugins`](./example-kappa-plugins).
+
+### How to use it
 
 1. Add the plugins in a folder called `.kappa-plugins` from the workspace root.
 2. Select a function

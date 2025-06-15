@@ -6,6 +6,7 @@ export type RunOnVSCodeFn<T, D> = (
     openFile: (uri: VSCode.Uri) => Promise<void>;
     copyFile: (sourceUri: VSCode.Uri, targetUri: VSCode.Uri) => Promise<void>;
     runTestsForCurrentKappaPlugin: () => Promise<string>;
+    runPromptBuilder: () => Promise<string>;
     workspaceUri: VSCode.Uri;
   },
   ...args: T[]
@@ -97,6 +98,37 @@ export async function runOnVSCode<T, D>(fn: RunOnVSCodeFn<T, D>, ...args: T[]): 
         return runTestsForCurrentKappaPlugin;`,
       )();
 
+      // Run prompt builder
+      const runPromptBuilder = new Function(
+        `async function runPromptBuilder() {
+          await vscode.commands.executeCommand('kappa.buildDecompilePrompt');
+
+          // Wait for the prompt be built
+          return new Promise((resolve, reject) => {
+            let attempts = 0;
+            const checkTestsCompleted = () => {
+              const activeEditor = vscode.window.activeTextEditor;
+              if (activeEditor && activeEditor.document.languageId === 'markdown') {
+                const text = activeEditor.document.getText();
+                resolve(text);
+              }
+
+              attempts += 1;
+              if (attempts > 50) {
+                console.error('Tests did not complete in time');
+                reject(new Error('Tests did not complete in time'));
+                return;
+              }
+
+              setTimeout(checkTestsCompleted, 100);
+            };
+
+            checkTestsCompleted();
+          });
+        };
+        return runPromptBuilder;`,
+      )();
+
       // Workspace Uri
       const workspaceFolders = vscode.workspace.workspaceFolders;
       if (!workspaceFolders || workspaceFolders.length === 0) {
@@ -108,7 +140,10 @@ export async function runOnVSCode<T, D>(fn: RunOnVSCodeFn<T, D>, ...args: T[]): 
       // Run callback
       const func: RunOnVSCodeFn<T, D> = new Function('arg', '...rest', `${fn}; return fn;`)();
 
-      return func({ vscode, copyFile, openFile, runTestsForCurrentKappaPlugin, workspaceUri }, ...args);
+      return func(
+        { vscode, copyFile, openFile, runTestsForCurrentKappaPlugin, runPromptBuilder, workspaceUri },
+        ...args,
+      );
     },
     `${fn}`,
     ...args,

@@ -33,8 +33,8 @@ jobs:
           sudo apt-get install -y clangd-16
           sudo update-alternatives --install /usr/bin/clangd clangd /usr/bin/clangd-16 100
 
-      - name: Compile project
-        run: yarn run compile
+      - name: Build project
+        run: yarn build
 
       - name: Run Tests
         uses: GabrielBB/xvfb-action@v1

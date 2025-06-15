@@ -4,7 +4,8 @@ import * as fs from 'fs';
 import dedent from 'dedent';
 import { createPatch } from 'diff';
 import { ASTVisitor } from './ast-visitor';
-import { getWorkspaceRoot, loadKappaPlugin } from './utils';
+import { getWorkspaceRoot } from './utils/vscode-utils';
+import { loadKappaPlugin } from './utils/kappa-plugin-utils';
 
 export async function runTestsForCurrentKappaPlugin(visitor: ASTVisitor): Promise<void> {
   const workspaceRoot = getWorkspaceRoot();
