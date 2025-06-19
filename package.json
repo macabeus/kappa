@@ -55,6 +55,14 @@
       {
         "command": "kappa.buildDecompilePrompt",
         "title": "Build a prompt to decompile it"
+      },
+      {
+        "command": "kappa.attachCodeForPrompt",
+        "title": "Attach code for next decompilation prompt"
+      },
+      {
+        "command": "kappa.clearAttachedCode",
+        "title": "Clear attached code"
       }
     ],
     "configuration": {

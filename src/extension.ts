@@ -7,6 +7,9 @@ import { ASTRequestType } from './clangd/ast';
 import { runTestsForCurrentKappaPlugin, loadKappaPlugins } from './kappa-plugins';
 import { ClangdExtensionImpl } from './clangd/api';
 import { createDecompilePromptFile, DecompilePromptCodeActionProvider } from './prompt-builder/prompt-builder';
+import { AttachCodeActionProvider } from './prompt-builder/attach-code-action-provider';
+import { attachedCodeStorage } from './prompt-builder/attached-code-storage';
+import { AttachedCodeStatusBar } from './prompt-builder/attached-code-status-bar';
 import { registerClangLanguage } from './utils/ast-grep-utils';
 
 // Constants for configuration
@@ -63,6 +66,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
     throw error;
   }
 
+  // Initialize status bar for attached code
+  const statusBar = new AttachedCodeStatusBar();
+  context.subscriptions.push(statusBar);
+
   // Register commands
   vscode.commands.registerCommand('kappa.runKappaPlugins', async () => {
     const client = await getClangdClient(apiInstance);
@@ -110,6 +117,27 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
     await createDecompilePromptFile(assemblyCode);
   });
 
+  vscode.commands.registerCommand('kappa.attachCodeForPrompt', async (selectedCode: string) => {
+    attachedCodeStorage.attach(selectedCode);
+    statusBar.updateStatusBar();
+
+    const attachedMessage = attachedCodeStorage.hasAttached()
+      ? 'Code attached for next decompilation prompt. It will be automatically included when you build the next prompt.'
+      : 'Failed to attach code.';
+
+    vscode.window.showInformationMessage(attachedMessage);
+  });
+
+  vscode.commands.registerCommand('kappa.clearAttachedCode', async () => {
+    attachedCodeStorage.clear();
+    statusBar.updateStatusBar();
+    vscode.window.showInformationMessage('Attached code cleared.');
+  });
+
+  vscode.commands.registerCommand('kappa.updateStatusBar', async () => {
+    statusBar.updateStatusBar();
+  });
+
   // Register code actions
   context.subscriptions.push(
     vscode.languages.registerCodeActionsProvider(
@@ -117,6 +145,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
       new DecompilePromptCodeActionProvider(),
       {
         providedCodeActionKinds: [vscode.CodeActionKind.Refactor],
+      },
+    ),
+  );
+
+  // Register code action provider for attaching code (works on all file types)
+  context.subscriptions.push(
+    vscode.languages.registerCodeActionsProvider(
+      '*', // Apply to all file types
+      new AttachCodeActionProvider(),
+      {
+        providedCodeActionKinds: [vscode.CodeActionKind.RefactorRewrite],
       },
     ),
   );

@@ -1,4 +1,5 @@
 import type { ExampleFunction } from './get-context-from-asm-function';
+import { attachedCodeStorage } from './attached-code-storage';
 
 const templateExamplePrompt = `# Example
 
@@ -18,11 +19,21 @@ const templateDeclarationsPrompt = `# Functions used in the target assembly
 
 `;
 
+const templateAttachedCodePrompt = `# Additional Context
+
+The following code has been provided as additional context for decompilation:
+
+\`\`\`c
+{attachedCode}
+\`\`\`
+
+`;
+
 const templateDecompilePrompt = `You are decompiling an assembly function in ARMv4T from a Gameboy Advance game.
 
 {examplePrompts}
 
-{declarationsPrompt}
+{declarationsPrompt}{attachedCodePrompt}
 
 # Task
 
@@ -60,10 +71,15 @@ export async function craftPrompt({
     .map((decl) => `- \`${decl}\``)
     .join('\n')}`;
 
+  // Get and consume attached code (one-shot behavior)
+  const attachedCode = attachedCodeStorage.consumeAttached();
+  const attachedCodePrompt = attachedCode ? templateAttachedCodePrompt.replace('{attachedCode}', attachedCode) : '';
+
   const finalPrompt = templateDecompilePrompt
     .replace('{modulePath}', modulePath)
     .replace('{examplePrompts}', examplePrompts)
     .replace('{declarationsPrompt}', declarationsPrompt)
+    .replace('{attachedCodePrompt}', attachedCodePrompt)
     .replace('{assemblyCode}', assemblyCode);
 
   return finalPrompt;

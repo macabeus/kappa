@@ -27,6 +27,17 @@ The **AI Prompt Builder** creates context-aware prompts for decompiling a assemb
    - Function signatures of dependencies used in the target assembly
    - Clear instructions and formatting rules for the AI
 
+### Attaching Additional Context
+
+You can attach code snippets to provide additional context for the next decompilation prompt:
+
+1. Select any code (e.g., a struct used by the function)
+2. Run the code action "Attach code for next decompilation prompt"
+3. The code will be included in the next prompt you build
+4. The attached code is automatically cleared after use (one-shot behavior)
+
+A status bar indicator shows when code is attached. Click it to clear the attached code if needed.
+
 ## 🔌 Kappa Plugins
 
 https://github.com/user-attachments/assets/ca5beb10-fc7a-423e-a5b4-ba009eac7dad
