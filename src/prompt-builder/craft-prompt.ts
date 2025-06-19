@@ -1,28 +1,30 @@
-import type { ExampleFunction } from './get-context-from-asm-function';
+import type { SamplingCFunction } from './get-context-from-asm-function';
 
-const templateExamplePrompt = `# Example
-
-You know that this assembly:
-
-\`\`\`asm
-{assemblyCode}
-\`\`\`
-
-Translates to this C code:
-
-\`\`\`c
-{cCode}
-\`\`\``;
-
-const templateDeclarationsPrompt = `# Functions used in the target assembly
+const templateExample = `# Examples
 
 `;
 
-const templateDecompilePrompt = `You are decompiling an assembly function in ARMv4T from a Gameboy Advance game.
+const templateFunctionsCallingTarget = `# Functions that call the target assembly
+
+`;
+
+const templateTargetAssemblyDeclaration = `# Function declaration for the target assmebly
+
+\`{targetAssemblyDeclaration}\``;
+
+const templateDeclarationsForFunctionsCalledFromTarget = `# Declarations for the functions called from the target assembly
+
+`;
+
+const templateDecompile = `You are decompiling an assembly function called \`{assemblyFunctionName}\` in ARMv4T from a Gameboy Advance game.
 
 {examplePrompts}
 
-{declarationsPrompt}
+{functionsCallingTargetPrompt}
+
+{targetAssemblyDeclarationPrompt}
+
+{functionDeclarationsPrompt}
 
 # Task
 
@@ -41,30 +43,59 @@ Given the above context, translate this assembly from \`{modulePath}\` to an equ
 
 export async function craftPrompt({
   modulePath,
-  assemblyCode,
-  declarations,
-  examples,
+  asmName,
+  asmDeclaration,
+  asmCode,
+  calledFunctionsDeclarations,
+  sampling,
 }: {
   modulePath: string;
-  assemblyCode: string;
-  declarations: { [functionName: string]: string };
-  examples: ExampleFunction[];
+  asmName: string;
+  asmDeclaration?: string;
+  asmCode: string;
+  calledFunctionsDeclarations: { [functionName: string]: string };
+  sampling: SamplingCFunction[];
 }): Promise<string> {
-  const examplePrompts = examples
-    .map((example) =>
-      templateExamplePrompt.replace('{assemblyCode}', example.assemblyCode).replace('{cCode}', example.cCode),
-    )
-    .join('\n\n');
+  // TODO: Instead of slicing, we should use a sampling strategy to select examples
+  const examples = sampling.filter((sample) => !sample.callsTarget).slice(0, 5);
+  const examplePrompts = examples.length
+    ? `${templateExample}${examples
+        .map(
+          (sample) =>
+            `## \`${sample.name}\`\n\n\`\`\`c\n${sample.cCode}\n\`\`\`\n\n\`\`\`asm\n${sample.assemblyCode}\n\`\`\``,
+        )
+        .join('\n\n')}`
+    : '';
 
-  const declarationsPrompt = `${templateDeclarationsPrompt}${Object.values(declarations)
-    .map((decl) => `- \`${decl}\``)
-    .join('\n')}`;
+  const cFunctionsCallingTarget = sampling.filter((sample) => sample.callsTarget);
+  const functionsCallingTargetPrompt = cFunctionsCallingTarget.length
+    ? `${templateFunctionsCallingTarget}${cFunctionsCallingTarget
+        .map(
+          (sample) =>
+            `## \`${sample.name}\`\n\n\`\`\`c\n${sample.cCode}\n\`\`\`\n\n\`\`\`asm\n${sample.assemblyCode}\n\`\`\``,
+        )
+        .join('\n\n')}`
+    : '';
 
-  const finalPrompt = templateDecompilePrompt
+  const targetAssemblyDeclarationPrompt = asmDeclaration
+    ? templateTargetAssemblyDeclaration.replace('{targetAssemblyDeclaration}', asmDeclaration)
+    : '';
+
+  const declarationsValues = Object.values(calledFunctionsDeclarations);
+  const functionDeclarationsPrompt = declarationsValues.length
+    ? `${templateDeclarationsForFunctionsCalledFromTarget}${Object.values(calledFunctionsDeclarations)
+        .map((decl) => `- \`${decl}\``)
+        .join('\n')}`
+    : '';
+
+  const finalPrompt = templateDecompile
+    .replace('{assemblyFunctionName}', asmName)
     .replace('{modulePath}', modulePath)
     .replace('{examplePrompts}', examplePrompts)
-    .replace('{declarationsPrompt}', declarationsPrompt)
-    .replace('{assemblyCode}', assemblyCode);
+    .replace('{functionsCallingTargetPrompt}', functionsCallingTargetPrompt)
+    .replace('{targetAssemblyDeclarationPrompt}', targetAssemblyDeclarationPrompt)
+    .replace('{functionDeclarationsPrompt}', functionDeclarationsPrompt)
+    .replace('{assemblyCode}', asmCode);
 
   return finalPrompt;
 }

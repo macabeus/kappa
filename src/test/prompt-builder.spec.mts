@@ -263,23 +263,26 @@ return result;`,
     await Promise.allSettled(allAsmModules.map((asm) => asm.deleteFile(testWorkspaceDir)));
 
     // Assert the prompt content
-    expect(prompt).toBe(`You are decompiling an assembly function in ARMv4T from a Gameboy Advance game.
+    expect(prompt)
+      .toBe(`You are decompiling an assembly function called \`product_pair\` in ARMv4T from a Gameboy Advance game.
 
-# Example
+# Examples
 
-You know that this assembly:
-
-\`\`\`asm
-${sumPairAsm.getFunction('sum_pair')}
-\`\`\`
-
-Translates to this C code:
+## \`sum_pair\`
 
 \`\`\`c
 ${sumPairC.getFunction('sum_pair')}
 \`\`\`
 
-# Functions used in the target assembly
+\`\`\`asm
+${sumPairAsm.getFunction('sum_pair')}
+\`\`\`
+
+
+
+
+
+# Declarations for the functions called from the target assembly
 
 - \`${sumPairC.getExternDeclaration('create_pair')}\`
 

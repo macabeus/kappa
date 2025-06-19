@@ -1,19 +1,22 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { parse } from '@ast-grep/napi';
-import { extractAssemblyFunction, extractFunctionCallsFromAssembly } from '../utils/asm-utils';
+import { extractAssemblyFunction, extractFunctionCallsFromAssembly, extractFunctionName } from '../utils/asm-utils';
 import { getFirstParentWithKind } from '../utils/ast-grep-utils';
 import { getFileChangesFromCommit, getRepositoryForFile } from '../utils/git-utils';
 
 export type AsmContext = {
-  declarations: { [functionName: string]: string };
-  examples: ExampleFunction[];
+  asmName: string;
+  asmDeclaration?: string; // Declaration of the target assembly function
+  calledFunctionsDeclarations: { [functionName: string]: string };
+  sampling: SamplingCFunction[];
 };
 
-export type ExampleFunction = {
+export type SamplingCFunction = {
   name: string;
   cCode: string;
   assemblyCode: string;
+  callsTarget: boolean;
 };
 
 /**
@@ -25,19 +28,22 @@ export async function getAsmContext(targetAssembly: string): Promise<AsmContext>
   const context = await getCodebaseContext(targetAssembly);
 
   const result: AsmContext = {
-    declarations: context.declarations,
-    examples: [],
+    asmName: context.asmName,
+    asmDeclaration: context.asmDeclaration,
+    calledFunctionsDeclarations: context.calledFunctionsDeclarations,
+    sampling: [],
   };
 
-  // For each C function calling the same functions as the target assembly, try to find its assembly version
-  const promises = context.cFunctionsCallingSameFunctions.map(async (cFunction) => {
+  // For each sampled C function, try to find its assembly version
+  const promises = context.cFunctionsSamplings.map(async (cFunction) => {
     const assemblyForCFunction = await findOriginalAssemblyInGitHistory(cFunction);
 
     if (assemblyForCFunction) {
-      result.examples.push({
+      result.sampling.push({
         name: cFunction.name,
         cCode: cFunction.content,
         assemblyCode: assemblyForCFunction,
+        callsTarget: cFunction.callsTarget,
       });
     }
   });
@@ -54,15 +60,13 @@ export async function getAsmContext(targetAssembly: string): Promise<AsmContext>
 
 /**
  * Search git history for the original assembly code of a C function
- * @param name The C function name to search for
- * @param cFunctionLocation The location of the C function
  * @returns The original assembly code or null if not found
  */
-async function findOriginalAssemblyInGitHistory(
-  targetCFunction: CodebaseContext['cFunctionsCallingSameFunctions'][number],
-): Promise<string | null> {
-  const { returnType: functionReturnType, name, location } = targetCFunction;
-
+async function findOriginalAssemblyInGitHistory({
+  returnType,
+  name,
+  location,
+}: CFunctionSampling): Promise<string | null> {
   if (!vscode.workspace.workspaceFolders) {
     return null;
   }
@@ -83,7 +87,7 @@ async function findOriginalAssemblyInGitHistory(
 
   const creationCommit = fileBlame
     .split('\n')
-    .find((line) => line.includes(`${functionReturnType} ${name}`))
+    .find((line) => line.includes(`${returnType} ${name}`))
     ?.split(' ')[0];
 
   if (!creationCommit) {
@@ -106,39 +110,43 @@ async function findOriginalAssemblyInGitHistory(
   return functionCode;
 }
 
+type CFunctionSampling = {
+  returnType: string;
+  name: string;
+  content: string;
+  location: vscode.Location;
+  callsTarget: boolean; // Indicates if this function calls the target assembly function
+};
+
 type CodebaseContext = {
-  declarations: { [functionName: string]: string };
-  cFunctionsCallingSameFunctions: Array<{
-    returnType: string;
-    name: string;
-    content: string;
-    location: vscode.Location;
-  }>;
+  asmName: string;
+  asmDeclaration?: string;
+  calledFunctionsDeclarations: { [functionName: string]: string }; // Declarations of functions called from the assembly
+  cFunctionsSamplings: CFunctionSampling[];
 };
 
 /**
  * Walk through the codebase to get relevant information from the given assembly function.
  */
 async function getCodebaseContext(targetAssembly: string): Promise<CodebaseContext> {
+  const targetAssemblyName = extractFunctionName(targetAssembly);
   const targetFunctionCalls = extractFunctionCallsFromAssembly(targetAssembly);
 
-  const result: CodebaseContext = {
-    declarations: {},
-    cFunctionsCallingSameFunctions: [],
-  };
+  const allFunctionsName = [targetAssemblyName, ...targetFunctionCalls];
 
-  if (targetFunctionCalls.length === 0) {
-    console.log('No function calls found in the target assembly code.');
-    return result;
-  }
+  const result: CodebaseContext = {
+    asmName: targetAssemblyName,
+    calledFunctionsDeclarations: {},
+    cFunctionsSamplings: [],
+  };
 
   const codebaseFiles = await vscode.workspace.findFiles('**/*.{c,h}', 'tools/**');
 
-  // Pattern for finding function declarations for the functions called in the assembly
+  // Pattern for finding relevant function declarations (e.g., the target assembly function and functions called in the assembly)
   const declarationsPattern = {
     rule: {
       kind: 'identifier',
-      regex: targetFunctionCalls.map((funcName) => `^(${funcName})$`).join('|'),
+      regex: allFunctionsName.map((funcName) => `^(${funcName})$`).join('|'),
       inside: {
         kind: 'function_declarator',
       },
@@ -149,7 +157,7 @@ async function getCodebaseContext(targetAssembly: string): Promise<CodebaseConte
   const callsPattern = {
     rule: {
       kind: 'identifier',
-      regex: targetFunctionCalls.map((funcName) => `^(${funcName})$`).join('|'),
+      regex: allFunctionsName.map((funcName) => `^(${funcName})$`).join('|'),
       inside: {
         kind: 'call_expression',
       },
@@ -169,7 +177,11 @@ async function getCodebaseContext(targetAssembly: string): Promise<CodebaseConte
         continue;
       }
 
-      result.declarations[declaration.text()] = declarationNode.text();
+      if (declaration.text() === targetAssemblyName) {
+        result.asmDeclaration = declarationNode.text();
+      } else {
+        result.calledFunctionsDeclarations[declaration.text()] = declarationNode.text();
+      }
     }
 
     const calls = source.root().findAll(callsPattern);
@@ -194,19 +206,22 @@ async function getCodebaseContext(targetAssembly: string): Promise<CodebaseConte
         continue;
       }
 
-      result.cFunctionsCallingSameFunctions.push({
+      const location = new vscode.Location(
+        file,
+        new vscode.Range(
+          call.range().start.line,
+          call.range().start.column,
+          call.range().end.line,
+          call.range().end.column,
+        ),
+      );
+
+      result.cFunctionsSamplings.push({
         returnType,
         name,
         content,
-        location: new vscode.Location(
-          file,
-          new vscode.Range(
-            call.range().start.line,
-            call.range().start.column,
-            call.range().end.line,
-            call.range().end.column,
-          ),
-        ),
+        location,
+        callsTarget: call.text() === targetAssemblyName,
       });
     }
   });

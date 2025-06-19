@@ -1,9 +1,9 @@
 /**
- * Extract function name from assembly code
+ * Extract function name from assembly code. Throws an error if not found.
  * @param assembly Assembly function to extract its name
- * @returns The function name or null if not found
+ * @returns The function name
  */
-export function extractFunctionName(assembly: string): string | null {
+export function extractFunctionName(assembly: string): string {
   const lines = assembly.trim().split('\n');
 
   // Look for thumb_func_start or arm_func_start
@@ -29,7 +29,7 @@ export function extractFunctionName(assembly: string): string | null {
     }
   }
 
-  return null;
+  throw new Error('Function name not found in target assembly');
 }
 
 /**

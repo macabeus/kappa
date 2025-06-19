@@ -6,7 +6,7 @@ import { craftPrompt } from './craft-prompt';
 /**
  * Open a new markdown file with a decompilation prompt tailored for the given assembly function.
  */
-export async function createDecompilePromptFile(assemblyCode: string): Promise<void> {
+export async function createDecompilePromptFile(asmCode: string): Promise<void> {
   try {
     const rootWorkspace = vscode.workspace.workspaceFolders?.[0];
     if (!rootWorkspace) {
@@ -17,13 +17,15 @@ export async function createDecompilePromptFile(assemblyCode: string): Promise<v
     const editor = vscode.window.activeTextEditor!;
     const modulePath = path.relative(rootWorkspace.uri.fsPath, editor.document.fileName);
 
-    const { declarations, examples } = await getAsmContext(assemblyCode);
+    const { asmName, asmDeclaration, calledFunctionsDeclarations, sampling } = await getAsmContext(asmCode);
 
     const promptContent = await craftPrompt({
       modulePath,
-      assemblyCode,
-      declarations,
-      examples,
+      asmName,
+      asmDeclaration,
+      asmCode,
+      calledFunctionsDeclarations,
+      sampling,
     });
 
     const document = await vscode.workspace.openTextDocument({
