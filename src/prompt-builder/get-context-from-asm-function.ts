@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { parse } from '@ast-grep/napi';
+import { SgNode } from '@ast-grep/napi';
 import { extractAssemblyFunction, extractFunctionCallsFromAssembly, extractFunctionName } from '../utils/asm-utils';
-import { getFirstParentWithKind } from '../utils/ast-grep-utils';
+import { getFirstParentWithKind, searchCodebase, Searcher } from '../utils/ast-grep-utils';
 import { getFileChangesFromCommit, getRepositoryForFile } from '../utils/git-utils';
 
 export type AsmContext = {
@@ -10,6 +10,7 @@ export type AsmContext = {
   asmDeclaration?: string; // Declaration of the target assembly function
   calledFunctionsDeclarations: { [functionName: string]: string };
   sampling: SamplingCFunction[];
+  typeDefinitions: string[]; // Type definitions used by the declarations
 };
 
 export type SamplingCFunction = {
@@ -32,6 +33,7 @@ export async function getAsmContext(targetAssembly: string): Promise<AsmContext>
     asmDeclaration: context.asmDeclaration,
     calledFunctionsDeclarations: context.calledFunctionsDeclarations,
     sampling: [],
+    typeDefinitions: context.typeDefinitions,
   };
 
   // For each sampled C function, try to find its assembly version
@@ -123,6 +125,7 @@ type CodebaseContext = {
   asmDeclaration?: string;
   calledFunctionsDeclarations: { [functionName: string]: string }; // Declarations of functions called from the assembly
   cFunctionsSamplings: CFunctionSampling[];
+  typeDefinitions: string[]; // Type definitions used by the declarations
 };
 
 /**
@@ -138,12 +141,15 @@ async function getCodebaseContext(targetAssembly: string): Promise<CodebaseConte
     asmName: targetAssemblyName,
     calledFunctionsDeclarations: {},
     cFunctionsSamplings: [],
+    typeDefinitions: [],
   };
 
   const codebaseFiles = await vscode.workspace.findFiles('**/*.{c,h}', 'tools/**');
 
-  // Pattern for finding relevant function declarations (e.g., the target assembly function and functions called in the assembly)
-  const declarationsPattern = {
+  let declarationsNode: SgNode[] = [];
+
+  // Searcher for finding relevant function declarations (e.g., the target assembly function and functions called in the assembly)
+  const declarationsMatcher = {
     rule: {
       kind: 'identifier',
       regex: allFunctionsName.map((funcName) => `^(${funcName})$`).join('|'),
@@ -152,9 +158,27 @@ async function getCodebaseContext(targetAssembly: string): Promise<CodebaseConte
       },
     },
   };
+  const declarationsSearcher: Searcher = {
+    matcher: declarationsMatcher,
+    handlerEach(file, declaration) {
+      const declarationNode = getFirstParentWithKind(declaration, 'declaration');
+      if (!declarationNode) {
+        console.warn(`Skipping declaration in "${file.fsPath}" due to missing declaration node`);
+        return;
+      }
 
-  // Pattern for finding function calls for the functions called in the assembly
-  const callsPattern = {
+      declarationsNode.push(declarationNode);
+
+      if (declaration.text() === targetAssemblyName) {
+        result.asmDeclaration = declarationNode.text();
+      } else {
+        result.calledFunctionsDeclarations[declaration.text()] = declarationNode.text();
+      }
+    },
+  };
+
+  // Searcher for finding function calls for the functions called in the assembly
+  const callsMatcher = {
     rule: {
       kind: 'identifier',
       regex: allFunctionsName.map((funcName) => `^(${funcName})$`).join('|'),
@@ -164,32 +188,13 @@ async function getCodebaseContext(targetAssembly: string): Promise<CodebaseConte
     },
   };
 
-  const promises = codebaseFiles.map(async (file) => {
-    const document = await vscode.workspace.openTextDocument(file);
-    const content = document.getText();
-    const source = parse('c', content);
-
-    const declarations = source.root().findAll(declarationsPattern);
-    for (const declaration of declarations) {
-      const declarationNode = getFirstParentWithKind(declaration, 'declaration');
-      if (!declarationNode) {
-        console.warn(`Skipping declaration in "${file.fsPath}" due to missing declaration node`);
-        continue;
-      }
-
-      if (declaration.text() === targetAssemblyName) {
-        result.asmDeclaration = declarationNode.text();
-      } else {
-        result.calledFunctionsDeclarations[declaration.text()] = declarationNode.text();
-      }
-    }
-
-    const calls = source.root().findAll(callsPattern);
-    for (const call of calls) {
+  const callsSearcher: Searcher = {
+    matcher: callsMatcher,
+    handlerEach(file, call) {
       const functionDefinitionNode = getFirstParentWithKind(call, 'function_definition');
       if (!functionDefinitionNode) {
         console.warn(`Skipping call in "${file.fsPath}" due to missing function definition`);
-        continue;
+        return;
       }
 
       const returnType = functionDefinitionNode
@@ -203,7 +208,7 @@ async function getCodebaseContext(targetAssembly: string): Promise<CodebaseConte
 
       if (!returnType || !name) {
         console.warn(`Skipping call in "${file.fsPath}" due to missing data`);
-        continue;
+        return;
       }
 
       const location = new vscode.Location(
@@ -223,14 +228,53 @@ async function getCodebaseContext(targetAssembly: string): Promise<CodebaseConte
         location,
         callsTarget: call.text() === targetAssemblyName,
       });
-    }
-  });
+    },
+  };
 
-  const promisesResult = await Promise.allSettled(promises);
-  for (const promise of promisesResult) {
-    if (promise.status === 'rejected') {
-      console.error('Error processing file:', promise.reason);
+  await searchCodebase(codebaseFiles, [declarationsSearcher, callsSearcher]);
+
+  if (declarationsNode.length) {
+    // TODO: Allow to configure which types to ignore
+    const ignoreTypes = new Set(['u8', 'u16', 'u32', 'u64', 's8', 's16', 's32', 's64']);
+
+    const typesFromDeclarations = new Set<string>();
+    for (const declaration of declarationsNode) {
+      declaration.findAll({ rule: { kind: 'type_identifier' } }).forEach((typeNode) => {
+        const typeName = typeNode.text();
+
+        if (ignoreTypes.has(typeName)) {
+          return;
+        }
+
+        typesFromDeclarations.add(typeName);
+      });
     }
+
+    // Searcher for the type definitions used by the declarations
+    const typeIdentifierMatcher = {
+      rule: {
+        kind: 'type_identifier',
+        regex: [...typesFromDeclarations].map((funcName) => `^(${funcName})$`).join('|'),
+        inside: {
+          kind: 'type_definition',
+        },
+      },
+    };
+
+    const typeIdentifierSearcher: Searcher = {
+      matcher: typeIdentifierMatcher,
+      handlerEach(file, typeIdentifier) {
+        const typeDefinitionNode = getFirstParentWithKind(typeIdentifier, 'type_definition');
+        if (!typeDefinitionNode) {
+          console.warn(`Skipping type identifier in "${file.fsPath}" due to missing type definition`);
+          return;
+        }
+
+        result.typeDefinitions.push(typeDefinitionNode.text());
+      },
+    };
+
+    await searchCodebase(codebaseFiles, [typeIdentifierSearcher]);
   }
 
   return result;

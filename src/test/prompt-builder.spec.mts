@@ -286,6 +286,22 @@ ${sumPairAsm.getFunction('sum_pair')}
 
 - \`${sumPairC.getExternDeclaration('create_pair')}\`
 
+# Types definitions used in the declarations
+
+\`\`\`c
+typedef struct {
+    int first;
+    int second;
+} Pair;
+\`\`\`
+
+\`\`\`c
+typedef struct {
+    int first;
+    int second;
+} Pair;
+\`\`\`
+
 # Task
 
 Given the above context, translate this assembly from \`product_pair.asm\` to an equivalent C code:

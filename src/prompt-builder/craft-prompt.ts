@@ -16,6 +16,10 @@ const templateDeclarationsForFunctionsCalledFromTarget = `# Declarations for the
 
 `;
 
+const templateTypeDefinitions = `# Types definitions used in the declarations
+
+`;
+
 const templateDecompile = `You are decompiling an assembly function called \`{assemblyFunctionName}\` in ARMv4T from a Gameboy Advance game.
 
 {examplePrompts}
@@ -25,6 +29,8 @@ const templateDecompile = `You are decompiling an assembly function called \`{as
 {targetAssemblyDeclarationPrompt}
 
 {functionDeclarationsPrompt}
+
+{typeDefinitionsPrompt}
 
 # Task
 
@@ -48,6 +54,7 @@ export async function craftPrompt({
   asmCode,
   calledFunctionsDeclarations,
   sampling,
+  typeDefinitions,
 }: {
   modulePath: string;
   asmName: string;
@@ -55,6 +62,7 @@ export async function craftPrompt({
   asmCode: string;
   calledFunctionsDeclarations: { [functionName: string]: string };
   sampling: SamplingCFunction[];
+  typeDefinitions: string[];
 }): Promise<string> {
   // TODO: Instead of slicing, we should use a sampling strategy to select examples
   const examples = sampling.filter((sample) => !sample.callsTarget).slice(0, 5);
@@ -88,6 +96,10 @@ export async function craftPrompt({
         .join('\n')}`
     : '';
 
+  const typeDefinitionsPrompt = typeDefinitions.length
+    ? `${templateTypeDefinitions}${typeDefinitions.map((typeDef) => `\`\`\`c\n${typeDef}\n\`\`\``).join('\n\n')}`
+    : '';
+
   const finalPrompt = templateDecompile
     .replace('{assemblyFunctionName}', asmName)
     .replace('{modulePath}', modulePath)
@@ -95,6 +107,7 @@ export async function craftPrompt({
     .replace('{functionsCallingTargetPrompt}', functionsCallingTargetPrompt)
     .replace('{targetAssemblyDeclarationPrompt}', targetAssemblyDeclarationPrompt)
     .replace('{functionDeclarationsPrompt}', functionDeclarationsPrompt)
+    .replace('{typeDefinitionsPrompt}', typeDefinitionsPrompt)
     .replace('{assemblyCode}', asmCode);
 
   return finalPrompt;

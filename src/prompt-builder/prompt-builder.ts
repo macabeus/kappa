@@ -17,7 +17,8 @@ export async function createDecompilePromptFile(asmCode: string): Promise<void> 
     const editor = vscode.window.activeTextEditor!;
     const modulePath = path.relative(rootWorkspace.uri.fsPath, editor.document.fileName);
 
-    const { asmName, asmDeclaration, calledFunctionsDeclarations, sampling } = await getAsmContext(asmCode);
+    const { asmName, asmDeclaration, calledFunctionsDeclarations, sampling, typeDefinitions } =
+      await getAsmContext(asmCode);
 
     const promptContent = await craftPrompt({
       modulePath,
@@ -26,6 +27,7 @@ export async function createDecompilePromptFile(asmCode: string): Promise<void> 
       asmCode,
       calledFunctionsDeclarations,
       sampling,
+      typeDefinitions,
     });
 
     const document = await vscode.workspace.openTextDocument({
