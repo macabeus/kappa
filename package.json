@@ -2,7 +2,7 @@
   "name": "kappa",
   "displayName": "Kappa",
   "description": "General helper for decompilation",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "publisher": "macabeus",
   "repository": {
     "type": "git",
