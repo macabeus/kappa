@@ -124,6 +124,9 @@ export class ClangdContext implements vscode.Disposable {
       // We also mark the list as incomplete to force retrieving new rankings.
       // See https://github.com/microsoft/language-server-protocol/issues/898
       middleware: {
+        handleDiagnostics: () => {
+          return;
+        },
         provideCompletionItem: async (document, position, context, token, next) => {
           if (!config.get<boolean>('enableCodeCompletion')) {
             return new vscode.CompletionList([], /*isIncomplete=*/ false);
