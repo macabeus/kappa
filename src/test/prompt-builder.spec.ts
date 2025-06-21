@@ -1,6 +1,6 @@
 import { simpleGit } from 'simple-git';
 import { expect } from '@wdio/globals';
-import { runOnVSCode } from './utils.mjs';
+import { runOnVSCode } from './utils';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 

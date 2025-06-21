@@ -1,5 +1,5 @@
 import { expect } from '@wdio/globals';
-import { runOnVSCode } from './utils.mjs';
+import { runOnVSCode } from './utils';
 
 const exampleKappaPlugins = [
   'AddCheckOffsetMacroPlugin.js',

@@ -1,3 +1,9 @@
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 export const config: WebdriverIO.Config = {
   //
   // ====================
@@ -22,7 +28,7 @@ export const config: WebdriverIO.Config = {
   // The path of the spec files will be resolved relative from the directory of
   // of the config file unless it's absolute.
   //
-  specs: ['./**/*.spec.mts'],
+  specs: ['./**/*.spec.ts'],
   // Patterns to exclude.
   exclude: [
     // 'path/to/excluded/files'

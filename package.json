@@ -4,6 +4,7 @@
   "description": "General helper for decompilation",
   "version": "0.0.3",
   "publisher": "macabeus",
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "https://github.com/macabeus/kappa.git"
@@ -18,7 +19,7 @@
     "onLanguage:c",
     "onLanguage:cpp"
   ],
-  "main": "./dist/extension.js",
+  "main": "./dist/extension.cjs",
   "contributes": {
     "languages": [
       {
