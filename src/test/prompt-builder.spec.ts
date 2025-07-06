@@ -1,11 +1,11 @@
-import { simpleGit } from 'simple-git';
+import type { CodeLens } from 'vscode';
 import { expect } from '@wdio/globals';
 import { runOnVSCode } from './utils';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
 class AsmModule {
-  private functions: string[];
+  #functions: string[];
   filename: string;
   code: string;
 
@@ -23,16 +23,17 @@ class AsmModule {
     );
 
     this.filename = filename;
-    this.functions = functionsCode;
+    this.#functions = functionsCode;
     this.code = `${modulePrefix}\n\n${functionsCode.join('\n\n')}\n`;
   }
 
   getFunction(name: string): string | null {
-    const func = this.functions.find((f) => f.startsWith(`${name}:`));
+    const func = this.#functions.find((f) => f.startsWith(`${name}:`));
     return func ?? null;
   }
 
   async createFile(dir: string): Promise<void> {
+    await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(path.join(dir, this.filename), this.code);
   }
 
@@ -42,10 +43,11 @@ class AsmModule {
 }
 
 class CModule {
-  private functions: string[];
-  private externDeclarations: string[];
+  #functions: string[];
+  #externDeclarations: string[];
   filename: string;
   code: string;
+  asmModule: AsmModule;
 
   constructor(
     filename: string,
@@ -54,6 +56,7 @@ class CModule {
       types: string[];
       externDeclarations: string[];
       functions: Array<{ name: string; signature: string; body: string }>;
+      asmCode: Array<{ name: string; code: string }>;
     },
   ) {
     const includes = options.includes.map((inc) => `#include ${inc}`).join('\n');
@@ -69,29 +72,34 @@ class CModule {
     );
 
     this.filename = filename;
-    this.externDeclarations = externDeclarations;
-    this.functions = functionsCode;
+    this.#externDeclarations = externDeclarations;
+    this.#functions = functionsCode;
 
     const parts = [includes, types, externDeclarations.join('\n'), ...functionsCode].filter(Boolean);
     this.code = parts.join('\n\n') + '\n';
+
+    this.asmModule = new AsmModule(filename.replace('.c', '.asm'), options.asmCode);
   }
 
   getFunction(name: string): string | null {
-    const func = this.functions.find((f) => f.includes(`${name}(`));
+    const func = this.#functions.find((f) => f.includes(`${name}(`));
     return func ?? null;
   }
 
   getExternDeclaration(name: string): string | null {
-    const declaration = this.externDeclarations.find((f) => f.includes(`${name}(`));
+    const declaration = this.#externDeclarations.find((f) => f.includes(`${name}(`));
     return declaration ?? null;
   }
 
   async createFile(dir: string): Promise<void> {
-    await fs.writeFile(path.join(dir, this.filename), this.code);
+    await fs.mkdir(`${dir}/src`, { recursive: true });
+    await fs.writeFile(path.join(`${dir}/src`, this.filename), this.code);
+    await this.asmModule.createFile(`${dir}/build`);
   }
 
   async deleteFile(dir: string): Promise<void> {
-    await fs.unlink(path.join(dir, this.filename));
+    await fs.unlink(path.join(`${dir}/src`, this.filename));
+    await this.asmModule.deleteFile(`${dir}/build`);
   }
 }
 
@@ -100,42 +108,6 @@ describe('Prompt Builder', () => {
     const testWorkspaceDir = await runOnVSCode(async function fn({ workspaceUri }) {
       return workspaceUri.fsPath;
     });
-
-    const git = simpleGit();
-
-    await git.cwd(testWorkspaceDir);
-
-    await git.init();
-
-    await git.addConfig('user.name', 'Test User', false, 'local');
-    await git.addConfig('user.email', 'test@example.com', false, 'local');
-
-    // Commit the project setup
-    const createPairAsm = new AsmModule('create_pair.asm', [
-      {
-        name: 'create_pair',
-        code: `push {r4, lr}
-mov r0, #8
-bl malloc
-str r4, [r0, #0]
-str r1, [r0, #4]
-pop {r4, pc}`,
-      },
-    ]);
-
-    const sumPairAsm = new AsmModule('sum_pair.asm', [
-      {
-        name: 'sum_pair',
-        code: `push {r4, r5, lr}
-mov r4, r0
-mov r5, r1
-bl create_pair
-ldr r1, [r0, #0]
-ldr r2, [r0, #4]
-add r0, r1, r2
-pop {r4, r5, pc}`,
-      },
-    ]);
 
     const productPairAsm = new AsmModule('product_pair.asm', [
       {
@@ -170,13 +142,10 @@ pop {r4, r5, r6, pc}`,
       },
     ]);
 
-    const allAsmModules = [createPairAsm, sumPairAsm, productPairAsm, sumProductPairAsm];
+    const allAsmModules = [productPairAsm, sumProductPairAsm];
 
-    await Promise.all(allAsmModules.map((asm) => asm.createFile(testWorkspaceDir)));
-    await git.add(allAsmModules.map((asm) => asm.filename));
-    await git.commit('Add initial assembly functions');
+    await Promise.all(allAsmModules.map((asm) => asm.createFile(`${testWorkspaceDir}/asm`)));
 
-    // Commit the decompiltion for `create_pair.asm`
     const createPairC = new CModule('create_pair.c', {
       includes: ['<stdlib.h>'],
       types: [
@@ -198,14 +167,21 @@ if (pair != NULL) {
 return pair;`,
         },
       ],
+      asmCode: [
+        {
+          name: 'create_pair',
+          code: `push {r4, lr}
+mov r0, #8
+bl malloc
+str r4, [r0, #0]
+str r1, [r0, #4]
+pop {r4, pc}`,
+        },
+      ],
     });
 
     await createPairC.createFile(testWorkspaceDir);
-    await createPairAsm.deleteFile(testWorkspaceDir);
-    await git.add([createPairAsm.filename, createPairC.filename]);
-    await git.commit('Replace create_pair.asm with decompiled C version');
 
-    // Commit the decompiled `sum_pair.asm`
     const sumPairC = new CModule('sum_pair.c', {
       includes: ['<stdlib.h>'],
       types: [
@@ -229,28 +205,44 @@ free(pair);
 return result;`,
         },
       ],
+      asmCode: [
+        {
+          name: 'sum_pair',
+          code: `push {r4, r5, lr}
+mov r4, r0
+mov r5, r1
+bl create_pair
+ldr r1, [r0, #0]
+ldr r2, [r0, #4]
+add r0, r1, r2
+pop {r4, r5, pc}`,
+        },
+      ],
     });
 
     await sumPairC.createFile(testWorkspaceDir);
-    await sumPairAsm.deleteFile(testWorkspaceDir);
-    await git.add([sumPairAsm.filename, sumPairC.filename]);
-    await git.commit('Replace sum_pair.asm with decompiled C version');
 
     // Run the prompt builder on `product_pair.asm`
     const prompt = await runOnVSCode(async function fn(
-      { vscode, workspaceUri, openFile, runPromptBuilder },
+      { vscode, workspaceUri, openFile, runIndexCodebase, runCodeLenPromptBuilder },
       productPairAsmFilename,
     ) {
-      const productPairAsmUri = vscode.Uri.joinPath(workspaceUri, productPairAsmFilename);
+      await runIndexCodebase();
+
+      const productPairAsmUri = vscode.Uri.joinPath(workspaceUri, 'asm', productPairAsmFilename);
 
       await openFile(productPairAsmUri);
 
-      const editor = vscode.window.activeTextEditor!;
-      const startPosition = new vscode.Position(4, 0);
-      const endPosition = new vscode.Position(12, editor.document.lineAt(12).text.length);
-      editor.selection = new vscode.Selection(startPosition, endPosition);
+      const codeLenses: CodeLens[] = await vscode.commands.executeCommand(
+        'vscode.executeCodeLensProvider',
+        productPairAsmUri,
+      );
 
-      const prompt = await runPromptBuilder();
+      if (codeLenses.length !== 1) {
+        throw new Error('Expected exactly one code lens for this assembly file');
+      }
+
+      const prompt = await runCodeLenPromptBuilder(codeLenses[0]);
 
       return prompt;
     }, productPairAsm.filename);
@@ -258,25 +250,14 @@ return result;`,
     // Clean up the test workspace
     const allCModules = [createPairC, sumPairC];
 
-    await fs.rm(path.join(testWorkspaceDir, '.git'), { recursive: true });
     await Promise.allSettled(allCModules.map((c) => c.deleteFile(testWorkspaceDir)));
-    await Promise.allSettled(allAsmModules.map((asm) => asm.deleteFile(testWorkspaceDir)));
+    await Promise.allSettled(allAsmModules.map((asm) => asm.deleteFile(`${testWorkspaceDir}/asm`)));
 
     // Assert the prompt content
     expect(prompt)
       .toBe(`You are decompiling an assembly function called \`product_pair\` in ARMv4T from a Gameboy Advance game.
 
-# Examples
 
-## \`sum_pair\`
-
-\`\`\`c
-${sumPairC.getFunction('sum_pair')}
-\`\`\`
-
-\`\`\`asm
-${sumPairAsm.getFunction('sum_pair')}
-\`\`\`
 
 
 
@@ -304,10 +285,11 @@ typedef struct {
 
 # Task
 
-Given the above context, translate this assembly from \`product_pair.asm\` to an equivalent C code:
+Given the above context, translate this assembly from \`asm/product_pair.asm\` to an equivalent C code:
 
 \`\`\`asm
 ${productPairAsm.getFunction('product_pair')}
+
 \`\`\`
 
 # Rules

@@ -26,7 +26,7 @@ export function getFirstParentWithKind(node: SgNode, kind: string) {
 
 export type Searcher = {
   matcher: NapiConfig;
-  handlerEach: (file: vscode.Uri, node: SgNode) => void;
+  handlerEach: (file: vscode.Uri, node: SgNode) => Promise<void> | void;
 };
 export async function searchCodebase(files: vscode.Uri[], searchers: Searcher[]) {
   const promises = files.map(async (file) => {
@@ -37,7 +37,7 @@ export async function searchCodebase(files: vscode.Uri[], searchers: Searcher[])
     for (const searcher of searchers) {
       const nodes = source.root().findAll(searcher.matcher);
       for (const node of nodes) {
-        searcher.handlerEach(file, node);
+        await searcher.handlerEach(file, node);
       }
     }
   });

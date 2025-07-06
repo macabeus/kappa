@@ -1,12 +1,11 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { SgNode } from '@ast-grep/napi';
-import { extractAssemblyFunction, extractFunctionCallsFromAssembly, extractFunctionName } from '../utils/asm-utils';
+import { database, DecompFunction } from '../db/db';
+import { extractAssemblyFunction } from '../utils/asm-utils';
 import { getFirstParentWithKind, searchCodebase, Searcher } from '../utils/ast-grep-utils';
-import { getFileChangesFromCommit, getRepositoryForFile } from '../utils/git-utils';
 
-export type AsmContext = {
-  asmName: string;
+export type DecompFuncContext = {
   asmDeclaration?: string; // Declaration of the target assembly function
   calledFunctionsDeclarations: { [functionName: string]: string };
   sampling: SamplingCFunction[];
@@ -16,131 +15,113 @@ export type AsmContext = {
 export type SamplingCFunction = {
   name: string;
   cCode: string;
-  assemblyCode: string;
+  asmCode: string;
   callsTarget: boolean;
+  filePath?: string;
 };
 
 /**
- * Get context from a given assembly function
+ * Get context from a given `DecompFunction`.
  * @param targetAssembly The target assembly code to get context
  * @returns An object containing declarations and C functions that call similar functions
  */
-export async function getAsmContext(targetAssembly: string): Promise<AsmContext> {
-  const context = await getCodebaseContext(targetAssembly);
+export async function getFuncContext(func: DecompFunction): Promise<DecompFuncContext> {
+  const context = await getCodebaseContext(func);
 
-  const result: AsmContext = {
-    asmName: context.asmName,
+  const result: DecompFuncContext = {
     asmDeclaration: context.asmDeclaration,
     calledFunctionsDeclarations: context.calledFunctionsDeclarations,
     sampling: [],
     typeDefinitions: context.typeDefinitions,
   };
 
-  // For each sampled C function, try to find its assembly version
-  const promises = context.cFunctionsSamplings.map(async (cFunction) => {
-    const assemblyForCFunction = await findOriginalAssemblyInGitHistory(cFunction);
+  const similarAsmFunctions = await database.searchSimilarFunctions(func);
+  for (const similarAsmFunction of similarAsmFunctions) {
+    result.sampling.push({
+      name: similarAsmFunction.decompFunction.name,
+      cCode: similarAsmFunction.decompFunction.cCode!,
+      asmCode: similarAsmFunction.decompFunction.asmCode,
+      callsTarget: similarAsmFunction.decompFunction.callsFunctions.some((f) => f.name === func.name),
+    });
+  }
 
-    if (assemblyForCFunction) {
-      result.sampling.push({
-        name: cFunction.name,
-        cCode: cFunction.content,
-        assemblyCode: assemblyForCFunction,
-        callsTarget: cFunction.callsTarget,
-      });
-    }
-  });
+  const db = await database.getDatabase();
+  const functionsThatCallsTarget = await db.collections.decompFunctions
+    .find({
+      selector: {
+        cCode: {
+          $exists: true,
+        },
+        callsFunctions: {
+          $elemMatch: {
+            $eq: func.id,
+          },
+        },
+      },
+    })
+    .exec();
 
-  const results = await Promise.allSettled(promises);
-  for (const result of results) {
-    if (result.status === 'rejected') {
-      console.error('Error processing C function:', result.reason);
-    }
+  for (const functionThatCallsTarget of functionsThatCallsTarget) {
+    result.sampling.push({
+      name: functionThatCallsTarget.name,
+      cCode: functionThatCallsTarget.cCode!,
+      asmCode: functionThatCallsTarget.asmCode,
+      callsTarget: true,
+    });
   }
 
   return result;
 }
 
-/**
- * Search git history for the original assembly code of a C function
- * @returns The original assembly code or null if not found
- */
-async function findOriginalAssemblyInGitHistory({
-  returnType,
+export async function findOriginalAssemblyInBuildFolder({
   name,
-  location,
-}: CFunctionSampling): Promise<string | null> {
-  if (!vscode.workspace.workspaceFolders) {
+  filePath,
+}: {
+  name: string;
+  filePath: string;
+}): Promise<{ asmCode: string; asmModulePath: string } | null> {
+  const cModuleName = path.basename(filePath, path.extname(filePath));
+
+  const assemblyModules = await vscode.workspace.findFiles(`build/**/${cModuleName}.{s,S,asm}`);
+
+  if (assemblyModules.length === 0) {
+    console.warn(`Assembly file not found for C module "${cModuleName}" in the build folder`);
     return null;
   }
 
-  const repo = await getRepositoryForFile(location.uri.fsPath);
-  if (!repo) {
-    console.warn(`No git repository found for ${location.uri.fsPath}`);
+  if (assemblyModules.length > 1) {
+    console.warn(`Multiple assembly files found for C module "${cModuleName}" in the build folder`);
     return null;
   }
 
-  const relativePath = path.relative(repo.rootUri.fsPath, location.uri.fsPath);
+  const asmModulePath = assemblyModules[0].fsPath;
+  const assemblyFileBuffer = await vscode.workspace.fs.readFile(vscode.Uri.file(asmModulePath));
+  const assemblyFileContent = new TextDecoder().decode(assemblyFileBuffer);
 
-  // TODO: This logic assumes that:
-  // - The last commit from the function declaration line is the one that introduced it from the assembly code.
-  // - This commit also has the assembly file changed.
-  // - There is only one assembly file changed in this commit.
-  const fileBlame = await repo.blame(relativePath);
+  const asmCode = extractAssemblyFunction(assemblyFileContent, name);
 
-  const creationCommit = fileBlame
-    .split('\n')
-    .find((line) => line.includes(`${returnType} ${name}`))
-    ?.split(' ')[0];
-
-  if (!creationCommit) {
+  if (!asmCode) {
+    console.warn(`Assembly function "${name}" not found in the assembly file "${asmModulePath}"`);
     return null;
   }
 
-  const changedFiles = await getFileChangesFromCommit(repo, creationCommit);
-  const parentHash = Object.keys(changedFiles)[0]; // We assume that there is exactly a single commit parent
-
-  const assemblyFileName = changedFiles[parentHash].find(
-    (file) => file.uri.fsPath.endsWith('.s') || file.uri.fsPath.endsWith('.S') || file.uri.fsPath.endsWith('.asm'),
-  )!;
-  const assemblyFileContent = await repo.show(
-    parentHash,
-    path.relative(repo.rootUri.fsPath, assemblyFileName.uri.fsPath),
-  );
-
-  const functionCode = extractAssemblyFunction(assemblyFileContent, name);
-
-  return functionCode;
+  return { asmCode, asmModulePath };
 }
 
-type CFunctionSampling = {
-  returnType: string;
-  name: string;
-  content: string;
-  location: vscode.Location;
-  callsTarget: boolean; // Indicates if this function calls the target assembly function
-};
-
 type CodebaseContext = {
-  asmName: string;
   asmDeclaration?: string;
   calledFunctionsDeclarations: { [functionName: string]: string }; // Declarations of functions called from the assembly
-  cFunctionsSamplings: CFunctionSampling[];
   typeDefinitions: string[]; // Type definitions used by the declarations
 };
 
 /**
  * Walk through the codebase to get relevant information from the given assembly function.
  */
-async function getCodebaseContext(targetAssembly: string): Promise<CodebaseContext> {
-  const targetAssemblyName = extractFunctionName(targetAssembly);
-  const targetFunctionCalls = extractFunctionCallsFromAssembly(targetAssembly);
-
-  const allFunctionsName = [targetAssemblyName, ...targetFunctionCalls];
+async function getCodebaseContext(decompFunction: DecompFunction): Promise<CodebaseContext> {
+  const allFunctionsName = [decompFunction.name, ...decompFunction.callsFunctions.map((func) => func.name)];
 
   const result: CodebaseContext = {
-    asmName: targetAssemblyName,
     calledFunctionsDeclarations: {},
-    cFunctionsSamplings: [],
     typeDefinitions: [],
   };
 
@@ -169,7 +150,7 @@ async function getCodebaseContext(targetAssembly: string): Promise<CodebaseConte
 
       declarationsNode.push(declarationNode);
 
-      if (declaration.text() === targetAssemblyName) {
+      if (declaration.text() === decompFunction.name) {
         result.asmDeclaration = declarationNode.text();
       } else {
         result.calledFunctionsDeclarations[declaration.text()] = declarationNode.text();
@@ -177,61 +158,8 @@ async function getCodebaseContext(targetAssembly: string): Promise<CodebaseConte
     },
   };
 
-  // Searcher for finding function calls for the functions called in the assembly
-  const callsMatcher = {
-    rule: {
-      kind: 'identifier',
-      regex: allFunctionsName.map((funcName) => `^(${funcName})$`).join('|'),
-      inside: {
-        kind: 'call_expression',
-      },
-    },
-  };
-
-  const callsSearcher: Searcher = {
-    matcher: callsMatcher,
-    handlerEach(file, call) {
-      const functionDefinitionNode = getFirstParentWithKind(call, 'function_definition');
-      if (!functionDefinitionNode) {
-        console.warn(`Skipping call in "${file.fsPath}" due to missing function definition`);
-        return;
-      }
-
-      const returnType = functionDefinitionNode
-        .find({ rule: { kind: 'function_declarator' } })
-        ?.prevAll()
-        .at(0)
-        ?.text();
-      const name = functionDefinitionNode.find({ rule: { kind: 'identifier' } })?.text();
-
-      const content = functionDefinitionNode.text();
-
-      if (!returnType || !name) {
-        console.warn(`Skipping call in "${file.fsPath}" due to missing data`);
-        return;
-      }
-
-      const location = new vscode.Location(
-        file,
-        new vscode.Range(
-          call.range().start.line,
-          call.range().start.column,
-          call.range().end.line,
-          call.range().end.column,
-        ),
-      );
-
-      result.cFunctionsSamplings.push({
-        returnType,
-        name,
-        content,
-        location,
-        callsTarget: call.text() === targetAssemblyName,
-      });
-    },
-  };
-
-  await searchCodebase(codebaseFiles, [declarationsSearcher, callsSearcher]);
+  // TODO: It can be optimized by not searching from the codebase, but grepping the code from `DecompFunction`
+  await searchCodebase(codebaseFiles, [declarationsSearcher]);
 
   if (declarationsNode.length) {
     // TODO: Allow to configure which types to ignore

@@ -70,7 +70,7 @@ export async function craftPrompt({
     ? `${templateExample}${examples
         .map(
           (sample) =>
-            `## \`${sample.name}\`\n\n\`\`\`c\n${sample.cCode}\n\`\`\`\n\n\`\`\`asm\n${sample.assemblyCode}\n\`\`\``,
+            `## \`${sample.name}\`\n\n\`\`\`c\n${sample.cCode}\n\`\`\`\n\n\`\`\`asm\n${sample.asmCode}\n\`\`\``,
         )
         .join('\n\n')}`
     : '';
@@ -80,7 +80,7 @@ export async function craftPrompt({
     ? `${templateFunctionsCallingTarget}${cFunctionsCallingTarget
         .map(
           (sample) =>
-            `## \`${sample.name}\`\n\n\`\`\`c\n${sample.cCode}\n\`\`\`\n\n\`\`\`asm\n${sample.assemblyCode}\n\`\`\``,
+            `## \`${sample.name}\`\n\n\`\`\`c\n${sample.cCode}\n\`\`\`\n\n\`\`\`asm\n${sample.asmCode}\n\`\`\``,
         )
         .join('\n\n')}`
     : '';

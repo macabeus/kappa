@@ -6,7 +6,8 @@ export type RunOnVSCodeFn<T, D> = (
     openFile: (uri: VSCode.Uri) => Promise<void>;
     copyFile: (sourceUri: VSCode.Uri, targetUri: VSCode.Uri) => Promise<void>;
     runTestsForCurrentKappaPlugin: () => Promise<string>;
-    runPromptBuilder: () => Promise<string>;
+    runIndexCodebase: () => Promise<void>;
+    runCodeLenPromptBuilder: (codeLen: VSCode.CodeLens) => Promise<string>;
     workspaceUri: VSCode.Uri;
   },
   ...args: T[]
@@ -98,10 +99,18 @@ export async function runOnVSCode<T, D>(fn: RunOnVSCodeFn<T, D>, ...args: T[]): 
         return runTestsForCurrentKappaPlugin;`,
       )();
 
+      // Run index codebase
+      const runIndexCodebase = new Function(
+        `async function runIndexCodebase() {
+          await vscode.commands.executeCommand('kappa.indexCodebase');
+        };
+        return runIndexCodebase;`,
+      )();
+
       // Run prompt builder
-      const runPromptBuilder = new Function(
-        `async function runPromptBuilder() {
-          await vscode.commands.executeCommand('kappa.buildDecompilePrompt');
+      const runCodeLenPromptBuilder = new Function(
+        `async function runCodeLenPromptBuilder(codeLen) {
+          await vscode.commands.executeCommand(codeLen.command.command, ...codeLen.command.arguments);
 
           // Wait for the prompt be built
           return new Promise((resolve, reject) => {
@@ -126,7 +135,7 @@ export async function runOnVSCode<T, D>(fn: RunOnVSCodeFn<T, D>, ...args: T[]): 
             checkTestsCompleted();
           });
         };
-        return runPromptBuilder;`,
+        return runCodeLenPromptBuilder;`,
       )();
 
       // Workspace Uri
@@ -141,7 +150,15 @@ export async function runOnVSCode<T, D>(fn: RunOnVSCodeFn<T, D>, ...args: T[]): 
       const func: RunOnVSCodeFn<T, D> = new Function('arg', '...rest', `${fn}; return fn;`)();
 
       return func(
-        { vscode, copyFile, openFile, runTestsForCurrentKappaPlugin, runPromptBuilder, workspaceUri },
+        {
+          vscode,
+          copyFile,
+          openFile,
+          runTestsForCurrentKappaPlugin,
+          runIndexCodebase,
+          runCodeLenPromptBuilder,
+          workspaceUri,
+        },
         ...args,
       );
     },
