@@ -2,7 +2,7 @@
   "name": "kappa",
   "displayName": "Kappa",
   "description": "General helper for decompilation",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "publisher": "macabeus",
   "type": "module",
   "repository": {
@@ -236,7 +236,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "pretest": "yarn build",
-    "test": "wdio run ./src/test/wdio.conf.ts"
+    "test": "wdio run ./src/test/wdio.conf.ts --spec ./src/test/prompt-builder.spec.ts"
   },
   "packageManager": "yarn@1.22.22+sha1.ac34549e6aa8e7ead463a7407e1c7390f61a6610",
   "dependencies": {
