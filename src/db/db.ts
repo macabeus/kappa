@@ -4,7 +4,7 @@ import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { cosineSimilarity } from 'rxdb/plugins/vector';
 import { VoyageApiResponse } from './voyage';
 import { getVoyageApiKey } from '../utils/settings';
-import { checkFileExists, getRelativePath } from '../utils/vscode-utils';
+import { checkFileExists, getRelativePath, getWorkspaceRoot } from '../utils/vscode-utils';
 import { extractFunctionCallsFromAssembly } from '../utils/asm-utils';
 
 export type DecompFunctionDoc = {
@@ -44,6 +44,14 @@ class Database {
 
   async #initializeDb(): Promise<KappaRxDatabase> {
     try {
+      const workspaceRoot = getWorkspaceRoot();
+      if (!workspaceRoot) {
+        console.error('No workspace root found, cannot initialize Kappa');
+
+        // Create a dummy promise to avoid unhandled rejection
+        return new Promise(() => null);
+      }
+
       const db: KappaRxDatabase = await createRxDatabase({
         name: 'kappa-db',
         storage: getRxStorageMemory(),

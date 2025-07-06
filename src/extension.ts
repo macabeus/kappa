@@ -8,6 +8,7 @@ import { runTestsForCurrentKappaPlugin, loadKappaPlugins } from './kappa-plugins
 import { ClangdExtensionImpl } from './clangd/api';
 import { createDecompilePromptFile } from './prompt-builder/prompt-builder';
 import { registerClangLanguage } from './utils/ast-grep-utils';
+import { getWorkspaceRoot } from './utils/vscode-utils';
 import { indexCodebase } from './db/index-codebase';
 import { showChart } from './db/show-chart';
 import { AssemblyCodeLensProvider } from './providers/assembly-code-lens';
@@ -74,6 +75,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
 
   // Register commands
   vscode.commands.registerCommand('kappa.indexCodebase', async () => {
+    const workspaceRoot = getWorkspaceRoot();
+    if (!workspaceRoot) {
+      vscode.window.showErrorMessage('No workspace found, cannot index codebase. Please open a folder instead.');
+      return;
+    }
+
     await indexCodebase();
 
     // Refresh code lenses after indexing
