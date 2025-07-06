@@ -14,13 +14,13 @@ VS Code extension designed to help you when decompiling a codebase.
 
 ## ⚙️ Extension setup
 
-<img width="1328" alt="image" src="https://github.com/user-attachments/assets/2d18a89d-828d-4b2d-a2e6-2fae33f1800d" />
+<img alt="Walkthrough" src="./media/readme/walkthrough.png" />
 
 Make sure to follow the Kappa Setup walkthrough to configure the extension and your project to work properly.
 
 ## ✨ AI Prompt Builder
 
-![Prompt builder](https://github.com/user-attachments/assets/570fba0c-55c7-43ac-a522-34f18329c2bf)
+<img alt="Build prompt" src="./media/readme/build-prompt.gif" />
 
 The **AI Prompt Builder** creates context-aware prompts for decompiling a assembly function. It automatically analyzes your codebase to provide the AI with an accurate context for this task.
 
@@ -32,7 +32,7 @@ The prompt includes:
 
 ## 🔌 Kappa Plugins
 
-![Kappa Plugins](https://github.com/user-attachments/assets/a904bf62-64f7-4798-af21-78915363a7e4)
+<img alt="Kappa Plugins" src="./media/readme/kappa-plugins.gif" />
 
 **Kappa plugins** are scripts that transform the Abstract Syntax Tree (AST) of C/C++ code blocks. They can be used to:
 
