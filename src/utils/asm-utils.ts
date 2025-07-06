@@ -1,35 +1,54 @@
 /**
- * Extract function name from assembly code. Throws an error if not found.
- * @param assembly Assembly function to extract its name
- * @returns The function name
+ * Extract function name from assembly code.
+ * @param asmCode Assembly function to extract its name
+ * @returns The function name, or null if not found
  */
-export function extractFunctionName(assembly: string): string {
-  const lines = assembly.trim().split('\n');
+export function extractFunctionName(asmCode: string): string | null {
+  const lines = asmCode.trim().split('\n');
 
-  // Look for thumb_func_start or arm_func_start
   for (const line of lines) {
-    const trimmed = line.trim();
-    const thumbMatch = trimmed.match(/thumb_func_start\s+(\w+)/);
-    if (thumbMatch) {
-      return thumbMatch[1];
-    }
-
-    const armMatch = trimmed.match(/arm_func_start\s+(\w+)/);
-    if (armMatch) {
-      return armMatch[1];
+    const functionName = extractFunctionNameFromLine(line);
+    if (functionName) {
+      return functionName;
     }
   }
 
-  // Look for function labels
-  for (const line of lines) {
-    const trimmed = line.trim();
-    const labelMatch = trimmed.match(/^([a-zA-Z_][a-zA-Z0-9_]*):(\s*@.*)?$/);
-    if (labelMatch) {
-      return labelMatch[1];
+  return null;
+}
+
+export function extractFunctionNameFromLine(line: string): string | null {
+  const trimmed = line.trim();
+
+  // Look for thumb_func_start
+  const thumbMatch = trimmed.match(/thumb_func_start\s+(\w+)/);
+  if (thumbMatch) {
+    return thumbMatch[1];
+  }
+
+  // Look for arm_func_start
+  const armMatch = trimmed.match(/arm_func_start\s+(\w+)/);
+  if (armMatch) {
+    return armMatch[1];
+  }
+
+  // Look for function labels (more specific pattern to avoid false positives)
+  const labelMatch = trimmed.match(/^([a-zA-Z_][a-zA-Z0-9_]*):(\s*@.*)?$/);
+  if (labelMatch) {
+    const name = labelMatch[1];
+    // Exclude common non-function labels
+    if (
+      !name.startsWith('_0') &&
+      !name.startsWith('.') &&
+      !name.startsWith('loc_') &&
+      !name.startsWith('branch_') &&
+      name !== 'main' &&
+      name.length > 1
+    ) {
+      return name;
     }
   }
 
-  throw new Error('Function name not found in target assembly');
+  return null;
 }
 
 /**
@@ -164,4 +183,130 @@ export function extractAssemblyFunction(assemblyContent: string, functionName: s
   }
 
   return null;
+}
+
+/**
+ * List all functions from a assembly module source
+ * @param assemblyContent The assembly module souce
+ * @returns Array of objects containing function name and code
+ */
+export function listAssemblyFunctions(assemblyContent: string): Array<{ name: string; code: string }> {
+  const functions: Array<{ name: string; code: string }> = [];
+  const lines = assemblyContent.split('\n');
+
+  let currentFunction: { name: string; startIndex: number } | null = null;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+
+    // Check for function start markers
+    const thumbStartMatch = line.match(/thumb_func_start\s+(\w+)/);
+    const armStartMatch = line.match(/arm_func_start\s+(\w+)/);
+
+    if (thumbStartMatch || armStartMatch) {
+      // If we were tracking a previous function, close it
+      if (currentFunction) {
+        const functionCode = lines.slice(currentFunction.startIndex, i).join('\n');
+        functions.push({
+          name: currentFunction.name,
+          code: functionCode,
+        });
+      }
+
+      // Start tracking new function
+      const functionName = thumbStartMatch ? thumbStartMatch[1] : armStartMatch![1];
+      currentFunction = {
+        name: functionName,
+        startIndex: i,
+      };
+    }
+    // Check for function labels as alternative function markers
+    else if (!currentFunction) {
+      const labelMatch = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*):(\s*@.*)?$/);
+      if (labelMatch) {
+        const functionName = labelMatch[1];
+        // Skip some common non-function labels
+        if (
+          !functionName.startsWith('_08') &&
+          !functionName.startsWith('.') &&
+          functionName !== 'gUnknown' &&
+          !functionName.includes('Unknown')
+        ) {
+          currentFunction = {
+            name: functionName,
+            startIndex: i,
+          };
+        }
+      }
+    }
+    // Check for function end markers
+    else if (currentFunction) {
+      const thumbEndMatch = line.match(/thumb_func_end\s+(\w+)/);
+      const armEndMatch = line.match(/arm_func_end\s+(\w+)/);
+
+      if (
+        (thumbEndMatch && thumbEndMatch[1] === currentFunction.name) ||
+        (armEndMatch && armEndMatch[1] === currentFunction.name)
+      ) {
+        // Include the end marker in the function code
+        const functionCode = lines.slice(currentFunction.startIndex, i + 1).join('\n');
+        functions.push({
+          name: currentFunction.name,
+          code: functionCode,
+        });
+        currentFunction = null;
+      }
+      // Check for start of next function (indicating current function ended)
+      else if (line.includes('thumb_func_start') || line.includes('arm_func_start')) {
+        // End current function before the new function starts
+        const functionCode = lines.slice(currentFunction.startIndex, i).join('\n');
+        functions.push({
+          name: currentFunction.name,
+          code: functionCode,
+        });
+
+        // Start new function
+        const newThumbMatch = line.match(/thumb_func_start\s+(\w+)/);
+        const newArmMatch = line.match(/arm_func_start\s+(\w+)/);
+        const functionName = newThumbMatch ? newThumbMatch[1] : newArmMatch![1];
+        currentFunction = {
+          name: functionName,
+          startIndex: i,
+        };
+      }
+      // Check for another function label (indicating current function ended)
+      else if (line.endsWith(':') && !line.startsWith('.') && !line.startsWith('_08')) {
+        const labelName = line.substring(0, line.length - 1);
+        if (
+          /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(labelName) &&
+          labelName !== currentFunction.name &&
+          !labelName.includes('Unknown')
+        ) {
+          // End current function
+          const functionCode = lines.slice(currentFunction.startIndex, i).join('\n');
+          functions.push({
+            name: currentFunction.name,
+            code: functionCode,
+          });
+
+          // Start new function
+          currentFunction = {
+            name: labelName,
+            startIndex: i,
+          };
+        }
+      }
+    }
+  }
+
+  // Handle last function if we reached end of file
+  if (currentFunction) {
+    const functionCode = lines.slice(currentFunction.startIndex).join('\n');
+    functions.push({
+      name: currentFunction.name,
+      code: functionCode,
+    });
+  }
+
+  return functions;
 }

@@ -54,8 +54,20 @@
         "title": "Run tests for the current Kappa Plugin"
       },
       {
-        "command": "kappa.buildDecompilePrompt",
+        "command": "kappa.runPromptBuilder",
         "title": "Build a prompt to decompile it"
+      },
+      {
+        "command": "kappa.indexCodebase",
+        "title": "Kappa: Index codebase"
+      },
+      {
+        "command": "kappa.showChart",
+        "title": "Kappa: Show chart"
+      },
+      {
+        "command": "kappa.changeVoyageApiKey",
+        "title": "Kappa: Set Voyage AI API Key"
       }
     ],
     "configuration": {
@@ -164,9 +176,56 @@
           "type": "boolean",
           "default": true,
           "description": "Enable clangd language server features"
+        },
+        "kappa.voyageApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for Voyage AI service used for semantic embeddings and search",
+          "scope": "application"
         }
       }
-    }
+    },
+    "walkthroughs": [
+      {
+        "id": "setup",
+        "title": "Kappa Setup",
+        "description": "Setup Kappa to work with your codebase.",
+        "steps": [
+          {
+            "id": "setVoyageApiKey",
+            "title": "Set Voyage AI API Key",
+            "description": "Optional, but strongly recommended.\n\n[Set API Key](command:kappa.changeVoyageApiKey)",
+            "media": {
+              "markdown": "media/walkthroughs/set-voyage-api-key.md"
+            },
+            "completionEvents": [
+              "onContext:walkthroughVoyageApiKeySet"
+            ]
+          },
+          {
+            "id": "indexCodebase",
+            "title": "Index the codebase",
+            "description": "[Index the codebase](command:kappa.indexCodebase)",
+            "media": {
+              "markdown": "media/walkthroughs/index-codebase.md"
+            },
+            "completionEvents": [
+              "onCommand:kappa.indexCodebase"
+            ]
+          },
+          {
+            "id": "waitForIndexing",
+            "title": "Wait for the codebase to be indexed",
+            "media": {
+              "markdown": "media/walkthroughs/wait-for-indexing.md"
+            },
+            "completionEvents": [
+              "onContext:walkthroughIndexingComplete"
+            ]
+          }
+        ]
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "yarn run package",
@@ -186,6 +245,9 @@
     "@clangd/install": "0.1.20",
     "dedent": "^1.6.0",
     "diff": "^8.0.2",
+    "rxdb": "^16.15.0",
+    "rxjs": "^7.8.2",
+    "umap-js": "^1.4.0",
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
@@ -203,7 +265,6 @@
     "eslint": "^9.25.1",
     "npm-run-all": "^4.1.5",
     "prettier": "^3.5.3",
-    "simple-git": "^3.28.0",
     "typescript": "^5.8.3",
     "wdio-vscode-service": "^6.1.3"
   }
