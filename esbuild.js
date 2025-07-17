@@ -33,7 +33,7 @@ async function main() {
     sourcesContent: false,
     platform: 'node',
     outfile: 'dist/extension.cjs',
-    external: ['vscode', '@aws-sdk/client-s3', '@ast-grep/napi', '@ast-grep/lang-c'],
+    external: ['vscode', '@aws-sdk/client-s3', '@ast-grep/napi', '@ast-grep/lang-c', 'objdiff-wasm'],
     logLevel: 'silent',
     plugins: [
       /* add to the end of plugins array */

@@ -54,6 +54,10 @@
         "title": "Run tests for the current Kappa Plugin"
       },
       {
+        "command": "kappa.compareObjectFiles",
+        "title": "Compare Two Object Files (.o)"
+      },
+      {
         "command": "kappa.runPromptBuilder",
         "title": "Build a prompt to decompile it"
       },
@@ -236,7 +240,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "pretest": "yarn build",
-    "test": "wdio run ./src/test/wdio.conf.ts --spec ./src/test/prompt-builder.spec.ts"
+    "test": "wdio run ./src/test/wdio.conf.ts --spec ./src/test/objdiff.spec.ts"
   },
   "packageManager": "yarn@1.22.22+sha1.ac34549e6aa8e7ead463a7407e1c7390f61a6610",
   "dependencies": {
@@ -245,9 +249,11 @@
     "@clangd/install": "0.1.20",
     "dedent": "^1.6.0",
     "diff": "^8.0.2",
+    "objdiff-wasm": "3.0.0-beta.10",
     "rxdb": "^16.15.0",
     "rxjs": "^7.8.2",
     "umap-js": "^1.4.0",
+    "undici": "^7.11.0",
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {

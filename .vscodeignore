@@ -4,6 +4,7 @@ out/**
 node_modules/**
 !node_modules/@ast-grep/**
 !node_modules/@aws-sdk/**
+!node_modules/objdiff-wasm/**
 src/**
 .github/**
 .wdio-vscode-service/**

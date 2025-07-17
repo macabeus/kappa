@@ -8,6 +8,7 @@ export type RunOnVSCodeFn<T, D> = (
     runTestsForCurrentKappaPlugin: () => Promise<string>;
     runIndexCodebase: () => Promise<void>;
     runCodeLenPromptBuilder: (codeLen: VSCode.CodeLens) => Promise<string>;
+    runCompareObjectFiles: () => Promise<string>;
     workspaceUri: VSCode.Uri;
   },
   ...args: T[]
@@ -138,6 +139,38 @@ export async function runOnVSCode<T, D>(fn: RunOnVSCodeFn<T, D>, ...args: T[]): 
         return runCodeLenPromptBuilder;`,
       )();
 
+      // Run compare object files
+      const runCompareObjectFiles = new Function(
+        `async function runCompareObjectFiles() {
+          await vscode.commands.executeCommand('kappa.compareObjectFiles');
+
+          // Wait for the diff to complete
+          return new Promise((resolve, reject) => {
+            let attempts = 0;
+            const checkDiffCompleted = () => {
+              const activeEditor = vscode.window.activeTextEditor;
+              if (activeEditor && (activeEditor.document.languageId === 'markdown' || activeEditor.document.languageId === 'text')) {
+                const text = activeEditor.document.getText();
+                resolve(text);
+                return;
+              }
+
+              attempts += 1;
+              if (attempts > 50) {
+                console.error('Tests did not complete in time');
+                reject(new Error('Tests did not complete in time'));
+                return;
+              }
+
+              setTimeout(checkDiffCompleted, 100);
+            };
+
+            checkDiffCompleted();
+          });
+        };
+        return runCompareObjectFiles;`,
+      )();
+
       // Workspace Uri
       const workspaceFolders = vscode.workspace.workspaceFolders;
       if (!workspaceFolders || workspaceFolders.length === 0) {
@@ -157,6 +190,7 @@ export async function runOnVSCode<T, D>(fn: RunOnVSCodeFn<T, D>, ...args: T[]): 
           runTestsForCurrentKappaPlugin,
           runIndexCodebase,
           runCodeLenPromptBuilder,
+          runCompareObjectFiles,
           workspaceUri,
         },
         ...args,
