@@ -1,5 +1,7 @@
 # Kappa
 
+<img src="./media/branding/logo.png" align="right" height="130px" />
+
 [![GitHub Stars](https://flat.badgen.net/github/stars/macabeus/kappa?icon=github)](https://github.com/macabeus/kappa)
 [![Visual Studio Marketplace Downloads](https://flat.badgen.net/vs-marketplace/d/macabeus.kappa?icon=visualstudio)](https://marketplace.visualstudio.com/items?itemName=macabeus.kappa)
 
