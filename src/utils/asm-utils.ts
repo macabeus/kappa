@@ -125,11 +125,40 @@ export function extractAssemblyFunction(assemblyContent: string, functionName: s
 
       // Look for the next function start (indicating this function has ended)
       if (line.includes('thumb_func_start') || line.includes('arm_func_start')) {
-        // Go back to find the end of current function (usually before .pool directive)
+        // Find the actual end of the current function by looking backwards for function data
         for (let j = i - 1; j >= functionStart; j--) {
           const prevLine = lines[j].trim();
-          if (prevLine === '.pool' || prevLine.startsWith('pop {')) {
+          // Look for the last piece of function data (constants, labels)
+          if (
+            prevLine.startsWith('.4byte') ||
+            prevLine.startsWith('.2byte') ||
+            prevLine.startsWith('.byte') ||
+            prevLine.startsWith('_') ||
+            prevLine === '.align 2, 0'
+          ) {
             functionEnd = j;
+            break;
+          }
+          // If we find a return instruction, include everything after it until we hit function data
+          if (prevLine.startsWith('bx ') || (prevLine.startsWith('pop {') && prevLine.includes('pc'))) {
+            // Continue scanning for function data after the return
+            for (let k = j + 1; k < i; k++) {
+              const nextLine = lines[k].trim();
+              if (
+                nextLine.startsWith('.4byte') ||
+                nextLine.startsWith('.2byte') ||
+                nextLine.startsWith('.byte') ||
+                nextLine.startsWith('_') ||
+                nextLine === '.align 2, 0'
+              ) {
+                functionEnd = k;
+              } else if (nextLine !== '' && !nextLine.startsWith('.align')) {
+                break;
+              }
+            }
+            if (functionEnd === -1) {
+              functionEnd = j;
+            }
             break;
           }
         }
@@ -144,11 +173,40 @@ export function extractAssemblyFunction(assemblyContent: string, functionName: s
         // Make sure it's not a local label (starts with _ and hex) or directive
         const labelName = line.substring(0, line.length - 1);
         if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(labelName) && !labelName.startsWith('_08')) {
-          // Go back to find the end of current function
+          // Find the actual end of the current function by looking backwards for function data
           for (let j = i - 1; j >= functionStart; j--) {
             const prevLine = lines[j].trim();
-            if (prevLine === '.pool' || prevLine.startsWith('pop {')) {
+            // Look for the last piece of function data (constants, labels)
+            if (
+              prevLine.startsWith('.4byte') ||
+              prevLine.startsWith('.2byte') ||
+              prevLine.startsWith('.byte') ||
+              prevLine.startsWith('_') ||
+              prevLine === '.align 2, 0'
+            ) {
               functionEnd = j;
+              break;
+            }
+            // If we find a return instruction, include everything after it until we hit function data
+            if (prevLine.startsWith('bx ') || (prevLine.startsWith('pop {') && prevLine.includes('pc'))) {
+              // Continue scanning for function data after the return
+              for (let k = j + 1; k < i; k++) {
+                const nextLine = lines[k].trim();
+                if (
+                  nextLine.startsWith('.4byte') ||
+                  nextLine.startsWith('.2byte') ||
+                  nextLine.startsWith('.byte') ||
+                  nextLine.startsWith('_') ||
+                  nextLine === '.align 2, 0'
+                ) {
+                  functionEnd = k;
+                } else if (nextLine !== '' && !nextLine.startsWith('.align')) {
+                  break;
+                }
+              }
+              if (functionEnd === -1) {
+                functionEnd = j;
+              }
               break;
             }
           }
@@ -163,16 +221,37 @@ export function extractAssemblyFunction(assemblyContent: string, functionName: s
 
   // If we found a function start but no explicit end, find the logical end
   if (functionStart !== -1 && functionEnd === -1) {
-    // Look for the last instruction or .pool directive
-    for (let i = lines.length - 1; i > functionStart; i--) {
+    // Look for the last instruction and any function data that follows
+    let lastInstruction = -1;
+    for (let i = functionStart; i < lines.length; i++) {
       const line = lines[i].trim();
-      if (line === '.pool' || line.startsWith('pop {') || line.includes('pc')) {
-        functionEnd = i;
+      if (line.startsWith('bx ') || (line.startsWith('pop {') && line.includes('pc'))) {
+        lastInstruction = i;
         break;
       }
     }
 
-    if (functionEnd === -1) {
+    if (lastInstruction !== -1) {
+      // Look for function data after the return instruction
+      for (let i = lastInstruction + 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (
+          line.startsWith('.4byte') ||
+          line.startsWith('.2byte') ||
+          line.startsWith('.byte') ||
+          line.startsWith('_') ||
+          line === '.align 2, 0'
+        ) {
+          functionEnd = i;
+        } else if (line !== '' && !line.startsWith('.align')) {
+          break;
+        }
+      }
+
+      if (functionEnd === -1) {
+        functionEnd = lastInstruction;
+      }
+    } else {
       functionEnd = lines.length - 1;
     }
   }
