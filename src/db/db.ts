@@ -3,7 +3,7 @@ import { createRxDatabase, RxCollection, RxDatabase, RxCollectionCreator, RxDocu
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { cosineSimilarity } from 'rxdb/plugins/vector';
 import { VoyageApiResponse } from './voyage';
-import { getVoyageApiKey } from '../utils/settings';
+import { getVoyageApiKey } from '../configurations/workspace-configs';
 import { checkFileExists, getRelativePath, getWorkspaceRoot } from '../utils/vscode-utils';
 import { extractFunctionCallsFromAssembly } from '../utils/asm-utils';
 
