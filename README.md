@@ -50,7 +50,7 @@ Kappa bundles [`objdiff`](https://github.com/encounter/objdiff) into the extensi
 
 ### Scatter Chart
 
-<img width="1712" height="970" alt="image" src="https://github.com/user-attachments/assets/018fa29b-9549-4126-99f2-916d70bc71f5" />
+<img alt="Scatter Chart" src="./media/readme/scatter-chart.png" />
 
 You can plot a scatter chart to visualize clusters of functions with similar assembly code by running `Show chart`.
 
