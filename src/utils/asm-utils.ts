@@ -1,3 +1,7 @@
+import * as vscode from 'vscode';
+import * as path from 'path';
+import { getWorkspaceRoot } from './vscode-utils';
+
 /**
  * Extract function name from assembly code.
  * @param asmCode Assembly function to extract its name
@@ -388,4 +392,47 @@ export function listAssemblyFunctions(assemblyContent: string): Array<{ name: st
   }
 
   return functions;
+}
+
+/**
+ * Remove a specific assembly function from a module file
+ * @param modulePath The relative path from workspace root to the assembly module file
+ * @param functionName The name of the function to remove
+ */
+export async function removeAssemblyFunction(modulePath: string, functionName: string): Promise<void> {
+  // Get workspace root
+  const workspaceRoot = getWorkspaceRoot();
+  if (!workspaceRoot) {
+    throw new Error('No workspace root found');
+  }
+
+  // Convert relative path to absolute path
+  const absolutePath = path.join(workspaceRoot, modulePath);
+
+  // Read the assembly file
+  const fileUri = vscode.Uri.file(absolutePath);
+  const assemblyFileBuffer = await vscode.workspace.fs.readFile(fileUri);
+  const assemblyFileContent = new TextDecoder().decode(assemblyFileBuffer);
+
+  // Find the function to remove
+  const functionCode = extractAssemblyFunction(assemblyFileContent, functionName);
+  if (!functionCode) {
+    throw new Error(`Function "${functionName}" not found in assembly file "${modulePath}"`);
+  }
+
+  // Remove the function from the content
+  const updatedContent = assemblyFileContent.replace(functionCode, '');
+
+  // Clean up any extra blank lines that might have been left behind
+  const cleanedContent = updatedContent.replace(/\n{3,}/g, '\n\n');
+
+  // Write the modified content back to the file
+  const updatedBuffer = new TextEncoder().encode(cleanedContent);
+  await vscode.workspace.fs.writeFile(fileUri, updatedBuffer);
+
+  // Save the file in VS Code editor if it's open
+  const openDocument = vscode.workspace.textDocuments.find((doc) => doc.uri.fsPath === absolutePath);
+  if (openDocument && openDocument.isDirty) {
+    await openDocument.save();
+  }
 }
