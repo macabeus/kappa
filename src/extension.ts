@@ -16,7 +16,8 @@ import { showChart } from './db/show-chart';
 import { GetDiffBetweenObjectFiles } from './language-model-tools/objdiff';
 import { AssemblyCodeLensProvider } from './providers/assembly-code-lens';
 import { objdiff } from './objdiff/objdiff';
-import { ensureKappaConfigExists } from './configurations/kappa-config-json';
+import { createKappaConfig, ensureKappaConfigExists, loadKappaConfig } from './configurations/kappa-config-json';
+import { createDecompMeScratch } from './decompme/create-scratch';
 
 // Constants for configuration
 const CLANGD_CHECK_INTERVAL = 100;
@@ -128,7 +129,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
     await ensureKappaConfigExists();
 
     if (!functionId) {
-      // TODO: Same as above from `kappa.startDecompilerAgent`.
+      // TODO: Same as from `kappa.startDecompilerAgent`.
       vscode.window.showErrorMessage('No function id provided when calling startDecompilerAgent command.');
       return;
     }
@@ -216,6 +217,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
 
       vscode.commands.executeCommand('setContext', 'walkthroughVoyageApiKeySet', true);
     }
+  });
+
+  vscode.commands.registerCommand('kappa.runKappaConfigCreation', async () => {
+    const kappaConfig = await loadKappaConfig();
+    await createKappaConfig(kappaConfig);
   });
 
   vscode.commands.registerCommand('kappa.runKappaPlugins', async () => {
@@ -336,6 +342,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
     });
 
     await vscode.window.showTextDocument(doc);
+  });
+
+  vscode.commands.registerCommand('kappa.createDecompMeScratch', async (functionId?: string) => {
+    await ensureKappaConfigExists({ ensureSpecificConfig: 'decompme' });
+
+    if (!functionId) {
+      // TODO: Same as from `kappa.startDecompilerAgent`.
+      vscode.window.showErrorMessage('No function id provided when calling createDecompMeScratch command.');
+      return;
+    }
+
+    await createDecompMeScratch(functionId);
   });
 
   // Register Language Model Tools

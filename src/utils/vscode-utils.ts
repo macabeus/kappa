@@ -58,21 +58,32 @@ export async function showPicker<
   items,
   title,
   placeholder,
+  defaultValue,
   allowCustomValue,
 }: {
   items: Items;
   title?: string;
   placeholder?: string;
+  defaultValue?: Items[number]['value'];
   allowCustomValue?: AllowCustomValue;
 }): Promise<AllowCustomValue extends true ? string | null : Items[number]['value'] | null> {
   const quickPickItems: vscode.QuickPickItem[] = items.map((item) => ({
     label: item.label ?? item.value,
   }));
 
+  let defaultItemLabel: string | undefined;
+  if (defaultValue) {
+    const matchedItem = items.find((item) => item.label === defaultValue || item.value === defaultValue);
+    if (matchedItem) {
+      defaultItemLabel = matchedItem.label ?? matchedItem.value;
+    }
+  }
+
   const quickPick = vscode.window.createQuickPick();
   quickPick.title = title;
   quickPick.placeholder = placeholder;
   quickPick.items = quickPickItems;
+  quickPick.value = defaultItemLabel ?? '';
 
   const result = await new Promise<string | null>((resolve) => {
     quickPick.onDidChangeValue((value) => {
@@ -107,11 +118,13 @@ export async function showFilePicker({
   files,
   title,
   placeholder,
+  defaultValue,
   allowCustomPath = false,
 }: {
   files: vscode.Uri[];
   title?: string;
   placeholder?: string;
+  defaultValue?: string;
   allowCustomPath?: boolean;
 }): Promise<string | null> {
   const workspaceRoot = getWorkspaceRoot();
@@ -128,6 +141,7 @@ export async function showFilePicker({
     items: relativeFiles,
     title,
     placeholder,
+    defaultValue,
     allowCustomValue: allowCustomPath,
   });
 

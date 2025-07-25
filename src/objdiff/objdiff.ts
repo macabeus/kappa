@@ -8,7 +8,6 @@ type ObjdiffWasm = typeof ObjdiffWasm;
 type ParsedObject = ObjdiffWasm.diff.Object;
 type ObjectDiff = ObjdiffWasm.diff.ObjectDiff;
 type DiffConfig = ObjdiffWasm.diff.DiffConfig;
-type SymbolInfo = ObjdiffWasm.diff.SymbolInfo;
 
 class Objdiff {
   #objdiff: Promise<ObjdiffWasm>;

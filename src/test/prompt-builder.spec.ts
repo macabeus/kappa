@@ -227,6 +227,7 @@ pop {r4, r5, pc}`,
       path.join(testWorkspaceDir, 'kappa-config.json'),
       JSON.stringify(
         {
+          kappaConfigVersion: 1,
           platform: 'gba',
         } as KappaConfig,
         null,

@@ -7,12 +7,10 @@
 
 VS Code extension designed to help you when decompiling a codebase.
 
-> ⚠️ **Work in Progress**: This extension is currently under active development. Features and APIs may change.
-
-- **✅ AI Prompt Builder:** Craft high-quality prompts to guide AI in decompiling a function.
-- **✅ Automated Code Fixes:** Use plugins to automatically update the code’s AST, eliminating repetitive tasks and correcting common errors.
-- **✅ Agent Mode:** Automatically decompile a given function, until it reache 100% match.
-- **🚧 Integration with [decomp.me](https://decomp.me/):** Create a new scratch from VS Code _(coming soon)_.
+- **✨ AI Prompt Builder:** Craft high-quality prompts to guide AI in decompiling a function.
+- **🤖 Agent Mode:** Automatically decompile a given function, until it reache 100% match.
+- **🐸 Integration with [decomp.me](https://decomp.me/):** Create a new scratch in one click.
+- **🔌 Automated Code Fixes:** Use plugins to automatically update the code’s AST, eliminating repetitive tasks and correcting common errors.
 
 > [📚 Learn how this project was developed on Substack](https://gambiconf.substack.com/p/development-journey-on-game-decompilation)
 
@@ -65,6 +63,12 @@ You can call [`objdiff`](https://github.com/encounter/objdiff) from the Copilot 
 The current object file is at `sa3/build/bu_bu.o`.
 The target object file is at `sa3/expected/bu_bu.o`
 ```
+
+## 🐸 Integration with decomp.me
+
+<img width="491" height="77" alt="Decomp.me integration" src="https://github.com/user-attachments/assets/5b52f230-017d-4448-ba1e-d79c4b92cc79" />
+
+Create a new scratch on decomp.me instantly by clicking the code lens that appears above assembly functions.
 
 ## 🔌 Kappa Plugins
 

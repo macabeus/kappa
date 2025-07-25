@@ -79,7 +79,13 @@ export class AssemblyCodeLensProvider implements vscode.CodeLensProvider {
             arguments: [functionId],
           });
 
-          codeLenses.push(codeLensPromptBuilder, codeLensStartAgent);
+          const codeLensCreateDecompMeScratch = new vscode.CodeLens(range, {
+            title: 'Create scratch on decomp.me',
+            command: 'kappa.createDecompMeScratch',
+            arguments: [functionId],
+          });
+
+          codeLenses.push(codeLensPromptBuilder, codeLensStartAgent, codeLensCreateDecompMeScratch);
 
           functionMap.delete(functionName); // Remove to avoid duplicates
         }

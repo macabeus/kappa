@@ -75,6 +75,10 @@
         "title": "Kappa: Show chart"
       },
       {
+        "command": "kappa.runKappaConfigCreation",
+        "title": "Kappa: Create or update Kappa configuration"
+      },
+      {
         "command": "kappa.changeVoyageApiKey",
         "title": "Kappa: Set Voyage AI API Key"
       }

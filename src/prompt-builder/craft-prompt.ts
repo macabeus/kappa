@@ -1,4 +1,4 @@
-import { loadKappaConfig, platforms } from '../configurations/kappa-config-json';
+import { KappaConfigPlatforms, loadKappaConfig } from '../configurations/kappa-config-json';
 import type { SamplingCFunction } from './get-context-from-asm-function';
 
 export type PromptMode =
@@ -125,7 +125,7 @@ Decompile the following target assembly function from \`{modulePath}\` into clea
 {rules}
 `;
 
-const mappingPlatforms: Record<(typeof platforms)[number], { name: string; assembly: string }> = {
+const mappingPlatforms: Record<KappaConfigPlatforms, { name: string; assembly: string }> = {
   gba: { name: 'Game Boy Advance', assembly: 'ARMv4T' },
   nds: { name: 'Nintendo DS', assembly: 'ARMv5TE' },
   n3ds: { name: 'Nintendo 3DS', assembly: 'ARMv6K' },
