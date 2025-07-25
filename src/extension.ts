@@ -16,7 +16,7 @@ import { showChart } from './db/show-chart';
 import { GetDiffBetweenObjectFiles } from './language-model-tools/objdiff';
 import { AssemblyCodeLensProvider } from './providers/assembly-code-lens';
 import { objdiff } from './objdiff/objdiff';
-import { createKappaConfig, ensureKappaConfigExists, loadKappaConfig } from './configurations/kappa-config-json';
+import { createDecompYaml, ensureDecompYamlExists, loadDecompYaml } from './configurations/decomp-yaml';
 import { createDecompMeScratch } from './decompme/create-scratch';
 
 // Constants for configuration
@@ -95,7 +95,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
 
   vscode.commands.registerCommand('kappa.runPromptBuilder', async (functionId?: string) => {
     registerClangLanguage();
-    await ensureKappaConfigExists();
+    await ensureDecompYamlExists();
 
     if (!functionId) {
       // TODO: Should show a dropdown selector with all functions in the current file if in an assembly file;
@@ -126,7 +126,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
 
   vscode.commands.registerCommand('kappa.startDecompilerAgent', async (functionId?: string) => {
     registerClangLanguage();
-    await ensureKappaConfigExists();
+    await ensureDecompYamlExists();
 
     if (!functionId) {
       // TODO: Same as from `kappa.startDecompilerAgent`.
@@ -219,9 +219,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
     }
   });
 
-  vscode.commands.registerCommand('kappa.runKappaConfigCreation', async () => {
-    const kappaConfig = await loadKappaConfig();
-    await createKappaConfig(kappaConfig);
+  vscode.commands.registerCommand('kappa.runDecompYamlCreation', async () => {
+    const decompYaml = await loadDecompYaml();
+    await createDecompYaml(decompYaml);
   });
 
   vscode.commands.registerCommand('kappa.runKappaPlugins', async () => {
@@ -258,7 +258,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
   });
 
   vscode.commands.registerCommand('kappa.compareSymbolFromObjectFiles', async () => {
-    await ensureKappaConfigExists();
+    await ensureDecompYamlExists();
 
     const objectFiles = await vscode.workspace.findFiles('**/*.o', 'tools/**');
 
@@ -345,7 +345,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
   });
 
   vscode.commands.registerCommand('kappa.createDecompMeScratch', async (functionId?: string) => {
-    await ensureKappaConfigExists({ ensureSpecificConfig: 'decompme' });
+    await ensureDecompYamlExists({ ensureSpecificTool: 'decompme' });
 
     if (!functionId) {
       // TODO: Same as from `kappa.startDecompilerAgent`.

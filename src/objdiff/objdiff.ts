@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import type * as ObjdiffWasm from 'objdiff-wasm';
 import fs from 'fs/promises';
 import path from 'path';
-import { loadKappaConfig } from '../configurations/kappa-config-json';
+import { loadDecompYaml } from '../configurations/decomp-yaml';
 
 type ObjdiffWasm = typeof ObjdiffWasm;
 type ParsedObject = ObjdiffWasm.diff.Object;
@@ -80,12 +80,12 @@ class Objdiff {
     const objdiff = await this.#objdiff;
     const diffConfig = new objdiff.diff.DiffConfig();
 
-    const kappaConfig = await loadKappaConfig();
-    if (!kappaConfig) {
+    const decompYaml = await loadDecompYaml();
+    if (!decompYaml) {
       return diffConfig;
     }
 
-    switch (kappaConfig.platform) {
+    switch (decompYaml.platform) {
       case 'gba': {
         diffConfig.setProperty('functionRelocDiffs', 'none');
         diffConfig.setProperty('arm.archVersion', 'v4t');
@@ -102,7 +102,7 @@ class Objdiff {
         break;
       }
       default: {
-        const platform: never = kappaConfig.platform;
+        const platform: never = decompYaml.platform;
         vscode.window.showErrorMessage(`Unsupported platform: ${platform}`);
       }
     }

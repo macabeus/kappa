@@ -1,6 +1,7 @@
 import type { CodeLens } from 'vscode';
+import YAML from 'yaml';
 import { expect } from '@wdio/globals';
-import type { KappaConfig } from '../configurations/kappa-config-json';
+import type { DecompYaml } from '../configurations/decomp-yaml';
 import { runOnVSCode } from './utils';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -224,15 +225,10 @@ pop {r4, r5, pc}`,
     await sumPairC.createFile(testWorkspaceDir);
 
     await fs.writeFile(
-      path.join(testWorkspaceDir, 'kappa-config.json'),
-      JSON.stringify(
-        {
-          kappaConfigVersion: 1,
-          platform: 'gba',
-        } as KappaConfig,
-        null,
-        2,
-      ),
+      path.join(testWorkspaceDir, 'decomp.yaml'),
+      YAML.stringify({
+        platform: 'gba',
+      } as DecompYaml),
     );
 
     // Run the prompt builder on `product_pair.asm`

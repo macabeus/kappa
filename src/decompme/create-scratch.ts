@@ -1,20 +1,13 @@
 import * as vscode from 'vscode';
-import { loadKappaConfig, KappaConfigPlatforms } from '../configurations/kappa-config-json';
+import { loadDecompYaml, DecompYamlPlatforms } from '../configurations/decomp-yaml';
 import { database } from '../db/db';
 import { getWorkspaceRoot } from '../utils/vscode-utils';
 
-// Platform mapping from Kappa to decomp.me
-const platformMapping: Record<KappaConfigPlatforms, string> = {
+// Platform mapping from decomp.yaml to decomp.me
+const platformMapping: Record<DecompYamlPlatforms, string> = {
   gba: 'gba',
   nds: 'nds',
   n3ds: '3ds',
-};
-
-// Default compilers for each platform
-const defaultCompilers: Record<KappaConfigPlatforms, string> = {
-  gba: 'agbcc',
-  nds: 'gcc2.95.3',
-  n3ds: 'gcc4.9.2',
 };
 
 type CreateScratchPayload = {
@@ -46,18 +39,16 @@ export async function createDecompMeScratch(functionId: string): Promise<void> {
       return;
     }
 
-    // Load Kappa configuration
-    const kappaConfig = await loadKappaConfig();
+    // Load decomp.yaml
+    const decompYaml = await loadDecompYaml();
 
-    if (!kappaConfig) {
-      vscode.window.showErrorMessage('Kappa configuration not found. Please run Kappa setup first.');
+    if (!decompYaml) {
+      vscode.window.showErrorMessage('decomp.yaml configuration not found. Please create it first.');
       return;
     }
 
-    if (!kappaConfig.decompme) {
-      vscode.window.showErrorMessage(
-        'decomp.me integration is not configured. Please update your Kappa configuration.',
-      );
+    if (!decompYaml.tools?.decompme) {
+      vscode.window.showErrorMessage('decompme tool is not configured. Please configure it first.');
       return;
     }
 
@@ -69,23 +60,23 @@ export async function createDecompMeScratch(functionId: string): Promise<void> {
     }
 
     // Map platform
-    const decompMePlatform = platformMapping[kappaConfig.platform];
+    const decompMePlatform = platformMapping[decompYaml.platform];
     if (!decompMePlatform) {
-      vscode.window.showErrorMessage(`Platform "${kappaConfig.platform}" is not supported by decomp.me integration.`);
+      vscode.window.showErrorMessage(`Platform "${decompYaml.platform}" is not supported by decomp.me integration.`);
       return;
     }
 
     // Get compiler
-    const compiler = kappaConfig.decompme.compiler;
+    const compiler = decompYaml.tools.decompme.compiler;
 
     // Get context
-    const contextPath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), kappaConfig.decompme.contextPath);
+    const contextPath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), decompYaml.tools.decompme.contextPath);
     let context: string;
     try {
       const contextContent = await vscode.workspace.fs.readFile(contextPath);
       context = new TextDecoder().decode(contextContent);
     } catch (error) {
-      vscode.window.showWarningMessage(`Could not read context file: ${kappaConfig.decompme.contextPath}`);
+      vscode.window.showWarningMessage(`Could not read context file: ${decompYaml.tools.decompme.contextPath}`);
       return;
     }
 
@@ -100,8 +91,8 @@ export async function createDecompMeScratch(functionId: string): Promise<void> {
     };
 
     // Add preset if configured
-    if (kappaConfig.decompme?.preset) {
-      payload.preset = kappaConfig.decompme.preset;
+    if (decompYaml.tools.decompme.preset) {
+      payload.preset = decompYaml.tools.decompme.preset;
     }
 
     // Show progress while creating scratch

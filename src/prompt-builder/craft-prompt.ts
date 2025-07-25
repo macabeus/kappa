@@ -1,4 +1,4 @@
-import { KappaConfigPlatforms, loadKappaConfig } from '../configurations/kappa-config-json';
+import { DecompYamlPlatforms, loadDecompYaml } from '../configurations/decomp-yaml';
 import type { SamplingCFunction } from './get-context-from-asm-function';
 
 export type PromptMode =
@@ -125,7 +125,7 @@ Decompile the following target assembly function from \`{modulePath}\` into clea
 {rules}
 `;
 
-const mappingPlatforms: Record<KappaConfigPlatforms, { name: string; assembly: string }> = {
+const mappingPlatforms: Record<DecompYamlPlatforms, { name: string; assembly: string }> = {
   gba: { name: 'Game Boy Advance', assembly: 'ARMv4T' },
   nds: { name: 'Nintendo DS', assembly: 'ARMv5TE' },
   n3ds: { name: 'Nintendo 3DS', assembly: 'ARMv6K' },
@@ -150,9 +150,9 @@ export async function craftPrompt({
   typeDefinitions: string[];
   promptMode: PromptMode;
 }): Promise<string> {
-  const kappaConfig = await loadKappaConfig();
-  if (!kappaConfig) {
-    throw new Error('Kappa configuration not found');
+  const decompYaml = await loadDecompYaml();
+  if (!decompYaml) {
+    throw new Error('decomp.yaml not found');
   }
 
   // TODO: Instead of slicing, we should use a sampling strategy to select examples
@@ -191,7 +191,7 @@ export async function craftPrompt({
     ? `${templateTypeDefinitions}${typeDefinitions.map((typeDef) => `\`\`\`c\n${typeDef}\n\`\`\``).join('\n\n')}`
     : '';
 
-  const platform = mappingPlatforms[kappaConfig.platform];
+  const platform = mappingPlatforms[decompYaml.platform];
 
   const finalPrompt = templateDecompile
     .replace('{assemblyLanguage}', platform.assembly)
