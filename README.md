@@ -66,9 +66,9 @@ The target object file is at `sa3/expected/bu_bu.o`
 
 ## 🐸 Integration with decomp.me
 
-<img width="491" height="77" alt="Decomp.me integration" src="https://github.com/user-attachments/assets/5b52f230-017d-4448-ba1e-d79c4b92cc79" />
+<img alt="Create Scratch" src="./media/readme/create-scratch.gif" />
 
-Create a new scratch on decomp.me instantly by clicking the code lens that appears above assembly functions.
+Create a new scratch on decomp.me instantly by clicking the code lens that appears above assembly functions. It automatically includes the type definitions from your code base which are used by the function and aren't on the context.
 
 ## 🔌 Kappa Plugins
 
@@ -93,7 +93,7 @@ player.x = Q(1);
 
 Check more examples on [`./example-kappa-plugins`](./example-kappa-plugins).
 
-### How to use it
+### How to use the plugins
 
 1. Add the plugins in a folder called `.kappa-plugins` from the workspace root.
 2. Select a function

@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { SgNode } from '@ast-grep/napi';
-import { database, DecompFunction } from '../db/db';
-import { extractAssemblyFunction } from '../utils/asm-utils';
-import { getFirstParentWithKind, searchCodebase, Searcher } from '../utils/ast-grep-utils';
+import { database, DecompFunction } from './db/db';
+import { extractAssemblyFunction } from './utils/asm-utils';
+import { getFirstParentWithKind, searchCodebase, Searcher } from './utils/ast-grep-utils';
 
 export type DecompFuncContext = {
   asmDeclaration?: string; // Declaration of the target assembly function

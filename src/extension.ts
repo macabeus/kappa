@@ -345,6 +345,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
   });
 
   vscode.commands.registerCommand('kappa.createDecompMeScratch', async (functionId?: string) => {
+    registerClangLanguage();
     await ensureDecompYamlExists({ ensureSpecificTool: 'decompme' });
 
     if (!functionId) {

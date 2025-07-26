@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { DecompFunction } from '../db/db';
-import { getFuncContext } from './get-context-from-asm-function';
+import { getFuncContext } from '../get-context-from-asm-function';
 import { craftPrompt, PromptMode } from './craft-prompt';
 
 /**

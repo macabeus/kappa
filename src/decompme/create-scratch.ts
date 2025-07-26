@@ -1,7 +1,9 @@
+import { parse } from '@ast-grep/napi';
 import * as vscode from 'vscode';
 import { loadDecompYaml, DecompYamlPlatforms } from '../configurations/decomp-yaml';
-import { database } from '../db/db';
+import { database, DecompFunction } from '../db/db';
 import { getWorkspaceRoot } from '../utils/vscode-utils';
+import { getFuncContext } from '../get-context-from-asm-function';
 
 // Platform mapping from decomp.yaml to decomp.me
 const platformMapping: Record<DecompYamlPlatforms, string> = {
@@ -16,9 +18,9 @@ type CreateScratchPayload = {
   platform: string;
   compiler: string;
   compiler_flags?: string;
-  diff_flags: string[];
   diff_label: string;
   preset?: number;
+  source_code?: string;
 };
 
 type CreateScratchResponse = {
@@ -27,6 +29,48 @@ type CreateScratchResponse = {
 };
 
 const decompMeUrl = 'https://decomp.me';
+
+async function getInitialSourceCode(context: string, decompFunction: DecompFunction): Promise<string | undefined> {
+  const { asmDeclaration, calledFunctionsDeclarations, typeDefinitions } = await getFuncContext(decompFunction);
+
+  let initialSourceCode = '';
+
+  // Target function code
+  if (asmDeclaration) {
+    initialSourceCode = asmDeclaration.replace(/;/g, ' {\n    // ...\n}\n');
+  }
+
+  // Add called functions declarations
+  const declarationsNotInContext = Object.keys(calledFunctionsDeclarations).filter((name) => !context.includes(name));
+  const declarationsSourceCode = declarationsNotInContext.map((name) => calledFunctionsDeclarations[name]).join('\n');
+  initialSourceCode = `${declarationsSourceCode}\n\n${initialSourceCode}`;
+
+  // Add type definitions
+  const typesNotInContext = typeDefinitions.filter((type) => {
+    const typeSource = parse('c', type);
+    const typeName = typeSource
+      .root()
+      .find({
+        rule: {
+          kind: 'type_identifier',
+          inside: {
+            kind: 'type_definition',
+          },
+        },
+      })
+      ?.text();
+
+    if (!typeName) {
+      return false;
+    }
+
+    const inContext = context.includes(typeName);
+    return !inContext;
+  });
+  initialSourceCode = `${typesNotInContext.join('\n\n')}\n${initialSourceCode}`;
+
+  return initialSourceCode;
+}
 
 /**
  * Create a new scratch on decomp.me for the given function
@@ -80,14 +124,17 @@ export async function createDecompMeScratch(functionId: string): Promise<void> {
       return;
     }
 
+    // Get initial source code
+    const initialSourceCode = await getInitialSourceCode(context, decompFunction);
+
     // Prepare payload
     const payload: CreateScratchPayload = {
       target_asm: decompFunction.asmCode,
-      context: context,
+      context,
       platform: decompMePlatform,
       compiler: compiler,
-      diff_flags: [`--disassemble=${decompFunction.name}`],
       diff_label: decompFunction.name,
+      source_code: initialSourceCode,
     };
 
     // Add preset if configured
