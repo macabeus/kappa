@@ -8,8 +8,15 @@ import { getFuncContext } from '../get-context-from-asm-function';
 // Platform mapping from decomp.yaml to decomp.me
 const platformMapping: Record<DecompYamlPlatforms, string> = {
   gba: 'gba',
-  nds: 'nds',
-  n3ds: '3ds',
+  nds: 'nds_arm9',
+  n3ds: 'n3ds',
+  n64: 'n64',
+  gc: 'gc_wii',
+  wii: 'gc_wii',
+  ps1: 'ps1',
+  ps2: 'ps2',
+  psp: 'psp',
+  win32: 'win32',
 };
 
 type CreateScratchPayload = {

@@ -129,6 +129,13 @@ const mappingPlatforms: Record<DecompYamlPlatforms, { name: string; assembly: st
   gba: { name: 'Game Boy Advance', assembly: 'ARMv4T' },
   nds: { name: 'Nintendo DS', assembly: 'ARMv5TE' },
   n3ds: { name: 'Nintendo 3DS', assembly: 'ARMv6K' },
+  n64: { name: 'Nintendo 64', assembly: 'MIPS' },
+  gc: { name: 'GameCube', assembly: 'PowerPC' },
+  wii: { name: 'Wii', assembly: 'PowerPC' },
+  ps1: { name: 'PlayStation', assembly: 'MIPS' },
+  ps2: { name: 'PlayStation 2', assembly: 'MIPS' },
+  psp: { name: 'PlayStation Portable', assembly: 'MIPS' },
+  win32: { name: 'Windows (32-bit)', assembly: 'x86' },
 };
 
 export async function craftPrompt({

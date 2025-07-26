@@ -101,6 +101,45 @@ class Objdiff {
         diffConfig.setProperty('arm.archVersion', 'v6k');
         break;
       }
+      case 'n64': {
+        diffConfig.setProperty('functionRelocDiffs', 'none');
+        diffConfig.setProperty('mips.abi', 'o32');
+        diffConfig.setProperty('mips.instrCategory', 'cpu');
+        break;
+      }
+      case 'gc': {
+        diffConfig.setProperty('functionRelocDiffs', 'none');
+        diffConfig.setProperty('ppc.calculatePoolRelocations', 'true');
+        break;
+      }
+      case 'wii': {
+        diffConfig.setProperty('functionRelocDiffs', 'none');
+        diffConfig.setProperty('ppc.calculatePoolRelocations', 'true');
+        break;
+      }
+      case 'ps1': {
+        diffConfig.setProperty('functionRelocDiffs', 'none');
+        diffConfig.setProperty('mips.abi', 'o32');
+        diffConfig.setProperty('mips.instrCategory', 'r3000gte');
+        break;
+      }
+      case 'ps2': {
+        diffConfig.setProperty('functionRelocDiffs', 'none');
+        diffConfig.setProperty('mips.abi', 'o32');
+        diffConfig.setProperty('mips.instrCategory', 'r5900');
+        break;
+      }
+      case 'psp': {
+        diffConfig.setProperty('functionRelocDiffs', 'none');
+        diffConfig.setProperty('mips.abi', 'o32');
+        diffConfig.setProperty('mips.instrCategory', 'r4000allegrex');
+        break;
+      }
+      case 'win32': {
+        diffConfig.setProperty('functionRelocDiffs', 'none');
+        diffConfig.setProperty('x86.formatter', 'intel');
+        break;
+      }
       default: {
         const platform: never = decompYaml.platform;
         vscode.window.showErrorMessage(`Unsupported platform: ${platform}`);

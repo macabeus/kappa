@@ -4,7 +4,7 @@ import z from 'zod';
 import { checkFileExists, getRelativePath, getWorkspaceRoot, showFilePicker, showPicker } from '../utils/vscode-utils';
 import { fetchPlatform } from '../decompme/platform';
 
-export const decompYamlPlatforms = ['gba', 'n3ds', 'nds'] as const;
+export const decompYamlPlatforms = ['gba', 'nds', 'n3ds', 'n64', 'gc', 'wii', 'ps1', 'ps2', 'psp', 'win32'] as const;
 export type DecompYamlPlatforms = (typeof decompYamlPlatforms)[number];
 
 const decompYamlSchema = z.object({
@@ -94,8 +94,15 @@ export async function createDecompYaml(currentConfig: DecompYaml | null = null):
     title: 'Select Platform',
     items: [
       { label: 'Gameboy Advance', value: 'gba' },
-      { label: 'Nintendo 3DS', value: 'n3ds' },
       { label: 'Nintendo DS', value: 'nds' },
+      { label: 'Nintendo 3DS', value: 'n3ds' },
+      { label: 'Nintendo 64', value: 'n64' },
+      { label: 'GameCube', value: 'gc' },
+      { label: 'Wii', value: 'wii' },
+      { label: 'PlayStation', value: 'ps1' },
+      { label: 'PlayStation 2', value: 'ps2' },
+      { label: 'PlayStation Portable', value: 'psp' },
+      { label: 'Windows (32-bit)', value: 'win32' },
     ] as const,
     defaultValue: currentConfig?.platform,
   });
