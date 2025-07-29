@@ -151,3 +151,51 @@ export async function showFilePicker({
 
   return result;
 }
+
+export async function showFolderPicker({
+  basePath,
+  title,
+  placeholder,
+  defaultValue,
+  allowCustomPath = false,
+}: {
+  basePath?: string;
+  title?: string;
+  placeholder?: string;
+  defaultValue?: string;
+  allowCustomPath?: boolean;
+} = {}): Promise<string | null> {
+  const workspaceRoot = getWorkspaceRoot();
+  if (!workspaceRoot) {
+    throw new Error('No workspace root found');
+  }
+
+  const searchPath = basePath ? resolveAbsolutePath(basePath) : workspaceRoot;
+
+  // Get all folders in the specified path
+  const entries = await vscode.workspace.fs.readDirectory(vscode.Uri.file(searchPath));
+  const folders = entries
+    .filter(([name, type]) => type === vscode.FileType.Directory && !name.startsWith('.'))
+    .map(([name]) => {
+      const folderPath = vscode.Uri.joinPath(vscode.Uri.file(searchPath), name).fsPath;
+      return {
+        label: getRelativePath(folderPath),
+        value: folderPath,
+      };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  const result = await showPicker({
+    items: folders,
+    title,
+    placeholder,
+    defaultValue,
+    allowCustomValue: allowCustomPath,
+  });
+
+  if (!result) {
+    return null;
+  }
+
+  return result;
+}

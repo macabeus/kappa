@@ -1,7 +1,14 @@
 import * as vscode from 'vscode';
 import YAML from 'yaml';
 import z from 'zod';
-import { checkFileExists, getRelativePath, getWorkspaceRoot, showFilePicker, showPicker } from '../utils/vscode-utils';
+import {
+  checkFileExists,
+  getRelativePath,
+  getWorkspaceRoot,
+  showFilePicker,
+  showFolderPicker,
+  showPicker,
+} from '../utils/vscode-utils';
 import { fetchPlatform } from '../decompme/platform';
 
 export const decompYamlPlatforms = ['gba', 'nds', 'n3ds', 'n64', 'gc', 'wii', 'ps1', 'ps2', 'psp', 'win32'] as const;
@@ -9,15 +16,18 @@ export type DecompYamlPlatforms = (typeof decompYamlPlatforms)[number];
 
 const decompYamlSchema = z.object({
   platform: z.enum(decompYamlPlatforms),
-  tools: z
-    .object({
-      decompme: z.object({
+  tools: z.object({
+    decompme: z
+      .object({
         contextPath: z.string(),
         compiler: z.string(),
         preset: z.number().nullable(),
-      }),
-    })
-    .optional(),
+      })
+      .optional(),
+    kappa: z.object({
+      buildFolder: z.string(),
+    }),
+  }),
 });
 
 export type DecompYaml = z.infer<typeof decompYamlSchema>;
@@ -90,6 +100,22 @@ export async function ensureDecompYamlExists({ ensureSpecificTool }: { ensureSpe
 }
 
 export async function createDecompYaml(currentConfig: DecompYaml | null = null): Promise<DecompYaml | null> {
+  const buildFolder = await showFolderPicker({
+    title: 'Select the build folder (where the assembly files are outputted from the source code)',
+    defaultValue: currentConfig?.tools?.kappa?.buildFolder,
+  });
+
+  if (!buildFolder) {
+    vscode.window.showErrorMessage('No build folder selected. Config file not created.');
+    return null;
+  }
+
+  // TODO: It should validate if it's a valid build folder. The validation should check:
+  // - If the folder exists
+  // - If it contains assembly files (e.g., .s or .asm files)
+  // - If a C file maps directly to an asm file
+  // This validation is relevant to ensure that the function `findOriginalAssemblyInBuildFolder` will work correctly.
+
   const platform = await showPicker({
     title: 'Select Platform',
     items: [
@@ -163,11 +189,12 @@ export async function createDecompYaml(currentConfig: DecompYaml | null = null):
 
   const newConfig: DecompYaml = {
     platform,
-    tools: decompmeTool
-      ? {
-          decompme: decompmeTool,
-        }
-      : undefined,
+    tools: {
+      kappa: {
+        buildFolder: getRelativePath(buildFolder),
+      },
+      ...(decompmeTool ? { decompme: decompmeTool } : {}),
+    },
   };
 
   const ymlExtension = vscode.Uri.joinPath(vscode.workspace.workspaceFolders![0].uri, 'decomp.yml');

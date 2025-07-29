@@ -228,6 +228,11 @@ pop {r4, r5, pc}`,
       path.join(testWorkspaceDir, 'decomp.yaml'),
       YAML.stringify({
         platform: 'gba',
+        tools: {
+          kappa: {
+            buildFolder: 'build',
+          },
+        },
       } as DecompYaml),
     );
 
