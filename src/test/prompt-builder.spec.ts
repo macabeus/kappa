@@ -1,5 +1,7 @@
 import type { CodeLens } from 'vscode';
+import YAML from 'yaml';
 import { expect } from '@wdio/globals';
+import type { DecompYaml } from '../configurations/decomp-yaml';
 import { runOnVSCode } from './utils';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -222,6 +224,18 @@ pop {r4, r5, pc}`,
 
     await sumPairC.createFile(testWorkspaceDir);
 
+    await fs.writeFile(
+      path.join(testWorkspaceDir, 'decomp.yaml'),
+      YAML.stringify({
+        platform: 'gba',
+        tools: {
+          kappa: {
+            buildFolder: 'build',
+          },
+        },
+      } as DecompYaml),
+    );
+
     // Run the prompt builder on `product_pair.asm`
     const prompt = await runOnVSCode(async function fn(
       { vscode, workspaceUri, openFile, runIndexCodebase, runCodeLenPromptBuilder },
@@ -238,11 +252,13 @@ pop {r4, r5, pc}`,
         productPairAsmUri,
       );
 
-      if (codeLenses.length !== 1) {
-        throw new Error('Expected exactly one code lens for this assembly file');
+      const buildPromptCodeLens = codeLenses.find((lens) => lens.command?.command === 'kappa.runPromptBuilder');
+
+      if (!buildPromptCodeLens) {
+        throw new Error('Could not find the code lens to build prompt');
       }
 
-      const prompt = await runCodeLenPromptBuilder(codeLenses[0]);
+      const prompt = await runCodeLenPromptBuilder(buildPromptCodeLens);
 
       return prompt;
     }, productPairAsm.filename);
@@ -255,7 +271,7 @@ pop {r4, r5, pc}`,
 
     // Assert the prompt content
     expect(prompt)
-      .toBe(`You are decompiling an assembly function called \`product_pair\` in ARMv4T from a Gameboy Advance game.
+      .toBe(`You are decompiling an assembly function called \`product_pair\` in ARMv4T from a Game Boy Advance game.
 
 
 
@@ -283,9 +299,9 @@ typedef struct {
 } Pair;
 \`\`\`
 
-# Task
+# Primary Objective
 
-Given the above context, translate this assembly from \`asm/product_pair.asm\` to an equivalent C code:
+Decompile the following target assembly function from \`asm/product_pair.asm\` into clean, readable C code that compiles to an assembly matching EXACTLY the original one.
 
 \`\`\`asm
 ${productPairAsm.getFunction('product_pair')}

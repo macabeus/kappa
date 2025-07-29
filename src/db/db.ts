@@ -3,9 +3,10 @@ import { createRxDatabase, RxCollection, RxDatabase, RxCollectionCreator, RxDocu
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { cosineSimilarity } from 'rxdb/plugins/vector';
 import { VoyageApiResponse } from './voyage';
-import { getVoyageApiKey } from '../utils/settings';
+import { getVoyageApiKey } from '../configurations/workspace-configs';
 import { checkFileExists, getRelativePath, getWorkspaceRoot } from '../utils/vscode-utils';
 import { extractFunctionCallsFromAssembly } from '../utils/asm-utils';
+import { LocalEmbeddingService } from './local-embedding';
 
 export type DecompFunctionDoc = {
   id: string;
@@ -37,9 +38,34 @@ type KappaRxDatabase = RxDatabase<{
 
 class Database {
   #db: Promise<KappaRxDatabase>;
+  private localEmbeddingService?: LocalEmbeddingService;
 
   constructor() {
     this.#db = this.#initializeDb();
+  }
+
+  /**
+   * Initialize local embedding service
+   */
+  initializeLocalEmbedding(extensionContext: vscode.ExtensionContext): void {
+    this.localEmbeddingService = new LocalEmbeddingService(extensionContext);
+  }
+
+  /**
+   * Check if local embedding is enabled and available
+   */
+  async isLocalEmbeddingEnabled(): Promise<boolean> {
+    if (!this.localEmbeddingService) {
+      return false;
+    }
+    return await this.localEmbeddingService.isAvailable();
+  }
+
+  /**
+   * Get the user's preferred embedding provider
+   */
+  private getEmbeddingProvider(): 'voyage' | 'local' {
+    return vscode.workspace.getConfiguration('kappa').get('embeddingProvider', 'voyage') as 'voyage' | 'local';
   }
 
   async #initializeDb(): Promise<KappaRxDatabase> {
@@ -189,6 +215,36 @@ class Database {
   }
 
   async #getEmbedding(asmCodes: string[]): Promise<number[][]> {
+    const preferredProvider = this.getEmbeddingProvider();
+
+    if (preferredProvider === 'local') {
+      // User chose local embedding
+      if (!this.localEmbeddingService) {
+        throw new Error(
+          'Local embedding service not initialized. Please restart VS Code or switch to Voyage AI in settings.',
+        );
+      }
+
+      if (!(await this.localEmbeddingService.isAvailable())) {
+        throw new Error(
+          'Local embedding model not available. The model will be downloaded on first use. Please try again or switch to Voyage AI in settings.',
+        );
+      }
+
+      try {
+        return await this.localEmbeddingService.getEmbedding(asmCodes);
+      } catch (error) {
+        throw new Error(
+          `Local embedding failed: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again or switch to Voyage AI in settings.`,
+        );
+      }
+    } else {
+      // User chose Voyage AI (default)
+      return await this.#getVoyageEmbedding(asmCodes);
+    }
+  }
+
+  async #getVoyageEmbedding(asmCodes: string[]): Promise<number[][]> {
     const response = await fetch('https://api.voyageai.com/v1/embeddings', {
       method: 'POST',
       headers: {

@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { SgNode } from '@ast-grep/napi';
-import { database, DecompFunction } from '../db/db';
-import { extractAssemblyFunction } from '../utils/asm-utils';
-import { getFirstParentWithKind, searchCodebase, Searcher } from '../utils/ast-grep-utils';
+import { loadDecompYaml } from './configurations/decomp-yaml';
+import { database, DecompFunction } from './db/db';
+import { extractAssemblyFunction } from './utils/asm-utils';
+import { getFirstParentWithKind, searchCodebase, Searcher } from './utils/ast-grep-utils';
 
 export type DecompFuncContext = {
   asmDeclaration?: string; // Declaration of the target assembly function
@@ -80,9 +81,16 @@ export async function findOriginalAssemblyInBuildFolder({
   name: string;
   filePath: string;
 }): Promise<{ asmCode: string; asmModulePath: string } | null> {
+  const decompYaml = await loadDecompYaml();
+  if (!decompYaml) {
+    throw new Error('decomp.yaml not found');
+  }
+
   const cModuleName = path.basename(filePath, path.extname(filePath));
 
-  const assemblyModules = await vscode.workspace.findFiles(`build/**/${cModuleName}.{s,S,asm}`);
+  const assemblyModules = await vscode.workspace.findFiles(
+    `${decompYaml.tools.kappa.buildFolder}/**/${cModuleName}.{s,S,asm}`,
+  );
 
   if (assemblyModules.length === 0) {
     console.warn(`Assembly file not found for C module "${cModuleName}" in the build folder`);
@@ -98,7 +106,7 @@ export async function findOriginalAssemblyInBuildFolder({
   const assemblyFileBuffer = await vscode.workspace.fs.readFile(vscode.Uri.file(asmModulePath));
   const assemblyFileContent = new TextDecoder().decode(assemblyFileBuffer);
 
-  const asmCode = extractAssemblyFunction(assemblyFileContent, name);
+  const asmCode = extractAssemblyFunction(decompYaml.platform, assemblyFileContent, name);
 
   if (!asmCode) {
     console.warn(`Assembly function "${name}" not found in the assembly file "${asmModulePath}"`);

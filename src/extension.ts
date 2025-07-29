@@ -6,12 +6,18 @@ import { ASTVisitor } from './ast-visitor';
 import { ASTRequestType } from './clangd/ast';
 import { runTestsForCurrentKappaPlugin, loadKappaPlugins } from './kappa-plugins';
 import { ClangdExtensionImpl } from './clangd/api';
-import { createDecompilePromptFile } from './prompt-builder/prompt-builder';
+import { createDecompilePrompt } from './prompt-builder/prompt-builder';
 import { registerClangLanguage } from './utils/ast-grep-utils';
-import { getWorkspaceRoot } from './utils/vscode-utils';
+import { removeAssemblyFunction } from './utils/asm-utils';
+import { getRelativePath, getWorkspaceRoot, showFilePicker, showPicker } from './utils/vscode-utils';
+import { database } from './db/db';
 import { indexCodebase } from './db/index-codebase';
 import { showChart } from './db/show-chart';
+import { GetDiffBetweenObjectFiles } from './language-model-tools/objdiff';
 import { AssemblyCodeLensProvider } from './providers/assembly-code-lens';
+import { objdiff } from './objdiff/objdiff';
+import { createDecompYaml, ensureDecompYamlExists, loadDecompYaml } from './configurations/decomp-yaml';
+import { createDecompMeScratch } from './decompme/create-scratch';
 
 // Constants for configuration
 const CLANGD_CHECK_INTERVAL = 100;
@@ -67,6 +73,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
     throw error;
   }
 
+  // Initialize local embedding service
+  database.initializeLocalEmbedding(context);
+
   // Register providers
   const codeLensProvider = new AssemblyCodeLensProvider();
   context.subscriptions.push(
@@ -89,13 +98,96 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
 
   vscode.commands.registerCommand('kappa.runPromptBuilder', async (functionId?: string) => {
     registerClangLanguage();
+    await ensureDecompYamlExists();
 
     if (!functionId) {
+      // TODO: Should show a dropdown selector with all functions in the current file if in an assembly file;
+      // otherwise, show all functions not decompiled. Use the database to get the list of functions.
+      // For now, just show an error message.
+
       vscode.window.showErrorMessage('No function id provided when calling runPromptBuilder command.');
       return;
     }
 
-    await createDecompilePromptFile(functionId);
+    const decompFunction = await database.getFunctionById(functionId);
+    if (!decompFunction) {
+      vscode.window.showErrorMessage(`Function with ID "${functionId}" not found in database.`);
+      return;
+    }
+
+    const prompt = await createDecompilePrompt(decompFunction, { type: 'ask' });
+    if (!prompt) {
+      return;
+    }
+
+    const document = await vscode.workspace.openTextDocument({
+      content: prompt,
+      language: 'markdown',
+    });
+    await vscode.window.showTextDocument(document);
+  });
+
+  vscode.commands.registerCommand('kappa.startDecompilerAgent', async (functionId?: string) => {
+    registerClangLanguage();
+    await ensureDecompYamlExists();
+
+    if (!functionId) {
+      // TODO: Same as from `kappa.startDecompilerAgent`.
+      vscode.window.showErrorMessage('No function id provided when calling startDecompilerAgent command.');
+      return;
+    }
+
+    const decompFunction = await database.getFunctionById(functionId);
+    if (!decompFunction) {
+      vscode.window.showErrorMessage(`Function with ID "${functionId}" not found in database.`);
+      return;
+    }
+
+    // Show pickers
+    const cFiles = await vscode.workspace.findFiles('**/*.{c,cpp}', 'tools/**');
+    const sourceFilePath = await showFilePicker({
+      title: 'Select The Target Source File (where the decompiled function should be placed on)',
+      files: cFiles,
+    });
+
+    if (!sourceFilePath) {
+      return;
+    }
+
+    const objectFiles = await vscode.workspace.findFiles('**/*.o', 'tools/**');
+    const currentObjectFilePath = await showFilePicker({
+      title: 'Select Current Object File (the one compiled from your source)',
+      files: objectFiles,
+    });
+
+    if (!currentObjectFilePath) {
+      return;
+    }
+
+    const targetObjectFilePath = await showFilePicker({
+      title: 'Select Target Object File (the one you want to compare against)',
+      files: objectFiles,
+      allowCustomPath: true,
+    });
+
+    if (!targetObjectFilePath) {
+      return;
+    }
+
+    // Start the decompiler agent for the selected function
+    const prompt = await createDecompilePrompt(decompFunction, {
+      type: 'agent',
+      sourceFilePath: getRelativePath(sourceFilePath),
+      currentObjectFilePath: getRelativePath(currentObjectFilePath),
+      targetObjectFilePath: getRelativePath(targetObjectFilePath),
+    });
+    if (!prompt) {
+      return;
+    }
+
+    await removeAssemblyFunction(decompFunction.asmModulePath, decompFunction.name);
+
+    await vscode.commands.executeCommand('workbench.action.chat.open', prompt);
   });
 
   vscode.commands.registerCommand('kappa.showChart', async () => {
@@ -130,6 +222,67 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
     }
   });
 
+  vscode.commands.registerCommand('kappa.changeEmbeddingProvider', async () => {
+    const currentProvider = vscode.workspace.getConfiguration('kappa').get('embeddingProvider', 'voyage') as
+      | 'voyage'
+      | 'local';
+
+    const provider = await vscode.window.showQuickPick(
+      [
+        {
+          label: 'Voyage AI',
+          description: 'High-quality embeddings via API (requires API key)',
+          detail: currentProvider === 'voyage' ? '✓ Currently selected' : 'Requires internet connection and API costs',
+          value: 'voyage',
+        },
+        {
+          label: 'Local Embedding',
+          description: 'Free local embeddings (runs offline)',
+          detail:
+            currentProvider === 'local'
+              ? '✓ Currently selected'
+              : 'Downloads model on first use (~100MB), lower quality than Voyage AI',
+          value: 'local',
+        },
+      ],
+      {
+        placeHolder: 'Choose your embedding provider',
+        title: 'Select Embedding Provider for Semantic Search',
+      },
+    );
+
+    if (provider) {
+      await vscode.workspace
+        .getConfiguration('kappa')
+        .update('embeddingProvider', provider.value, vscode.ConfigurationTarget.Global);
+
+      if (provider.value === 'voyage') {
+        const hasApiKey = vscode.workspace.getConfiguration('kappa').get('voyageApiKey', '');
+        if (!hasApiKey) {
+          const setApiKey = await vscode.window.showInformationMessage(
+            'Voyage AI requires an API key. Would you like to set it now?',
+            'Set API Key',
+            'Later',
+          );
+          if (setApiKey === 'Set API Key') {
+            await vscode.commands.executeCommand('kappa.changeVoyageApiKey');
+          }
+        }
+      } else if (provider.value === 'local') {
+        vscode.window.showInformationMessage(
+          'Local embedding model will be downloaded on first use (~100MB). This may take a few minutes.',
+        );
+      }
+
+      vscode.window.showInformationMessage(`Embedding provider changed to ${provider.label}`);
+    }
+  });
+
+  vscode.commands.registerCommand('kappa.runDecompYamlCreation', async () => {
+    const decompYaml = await loadDecompYaml();
+    await createDecompYaml(decompYaml);
+  });
+
   vscode.commands.registerCommand('kappa.runKappaPlugins', async () => {
     const client = await getClangdClient(apiInstance);
     const converter = client.code2ProtocolConverter;
@@ -162,6 +315,109 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
 
     vscode.window.showInformationMessage('Tests for current Kappa plugin completed.');
   });
+
+  vscode.commands.registerCommand('kappa.compareSymbolFromObjectFiles', async () => {
+    await ensureDecompYamlExists();
+
+    const objectFiles = await vscode.workspace.findFiles('**/*.o', 'tools/**');
+
+    // Show picker for the current file
+    const currentFilePath = await showFilePicker({
+      title: 'Select Current Object File (the one compiled from your source)',
+      files: objectFiles,
+    });
+
+    if (!currentFilePath) {
+      return;
+    }
+
+    // Show picker for the target file
+    const targetFilePath = await showFilePicker({
+      title: 'Select Target Object File (the one you want to compare against)',
+      files: objectFiles,
+    });
+
+    if (!targetFilePath) {
+      return;
+    }
+
+    // Parse the object files
+    const [currentParsedObject, targetParsedObject] = await Promise.all([
+      objdiff.parseObjectFile(currentFilePath),
+      objdiff.parseObjectFile(targetFilePath),
+    ]);
+
+    // Show symbols picker
+    const [symbolsCurrentFile, symbolsTargetFile] = await Promise.all([
+      objdiff.getSymbolsName(currentParsedObject),
+      objdiff.getSymbolsName(targetParsedObject),
+    ]);
+
+    const items = [...symbolsCurrentFile, ...symbolsTargetFile].reduce(
+      (acc, symbolName) => {
+        const existing = acc.find(({ value }) => value === symbolName);
+        if (existing) {
+          return acc;
+        }
+
+        const hasOnCurrent = symbolsCurrentFile.includes(symbolName);
+        const hasOnTarget = symbolsTargetFile.includes(symbolName);
+
+        acc.push({
+          label: `${symbolName} ${hasOnCurrent ? '●' : '○'}${hasOnTarget ? '●' : '○'}`,
+          value: symbolName,
+        });
+        return acc;
+      },
+      [] as Array<{ label: string; value: string }>,
+    );
+
+    const selectedSymbol = await showPicker({
+      items,
+      title: 'Select Symbol to Compare',
+      placeholder: 'Type to filter symbols',
+    });
+
+    if (!selectedSymbol) {
+      return;
+    }
+
+    // Compare the selected symbol from the object files
+    const diffResult = await objdiff.compareObjectFiles(
+      currentFilePath,
+      targetFilePath,
+      currentParsedObject,
+      targetParsedObject,
+      selectedSymbol,
+    );
+    if (!diffResult) {
+      vscode.window.showErrorMessage('Failed to compare object files.');
+      return;
+    }
+
+    const doc = await vscode.workspace.openTextDocument({
+      content: diffResult,
+      language: 'markdown',
+    });
+
+    await vscode.window.showTextDocument(doc);
+  });
+
+  vscode.commands.registerCommand('kappa.createDecompMeScratch', async (functionId?: string) => {
+    registerClangLanguage();
+    await ensureDecompYamlExists({ ensureSpecificTool: 'decompme' });
+
+    if (!functionId) {
+      // TODO: Same as from `kappa.startDecompilerAgent`.
+      vscode.window.showErrorMessage('No function id provided when calling createDecompMeScratch command.');
+      return;
+    }
+
+    await createDecompMeScratch(functionId);
+  });
+
+  // Register Language Model Tools
+  context.subscriptions.push(vscode.lm.registerTool('get_diff_between_object_files', new GetDiffBetweenObjectFiles()));
 
   return apiInstance;
 }

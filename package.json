@@ -2,7 +2,7 @@
   "name": "kappa",
   "displayName": "Kappa",
   "description": "General helper for decompilation",
-  "version": "0.0.5",
+  "version": "1.1.0",
   "publisher": "macabeus",
   "icon": "media/branding/logo.png",
   "type": "module",
@@ -48,15 +48,23 @@
     "commands": [
       {
         "command": "kappa.runKappaPlugins",
-        "title": "Run Kappa Plugins"
+        "title": "Kappa: Run Kappa Plugins"
       },
       {
         "command": "kappa.runTestsForCurrentKappaPlugin",
-        "title": "Run tests for the current Kappa Plugin"
+        "title": "Kappa: Run tests for the current Kappa Plugin"
+      },
+      {
+        "command": "kappa.compareSymbolFromObjectFiles",
+        "title": "Kappa: Compare a symbol from two object files"
       },
       {
         "command": "kappa.runPromptBuilder",
-        "title": "Build a prompt to decompile it"
+        "title": "Kappa: Build a prompt to decompile it"
+      },
+      {
+        "command": "kappa.startDecompilerAgent",
+        "title": "Kappa: Start the decompiler agent to decompile a function"
       },
       {
         "command": "kappa.indexCodebase",
@@ -67,8 +75,16 @@
         "title": "Kappa: Show chart"
       },
       {
+        "command": "kappa.runDecompYamlCreation",
+        "title": "Kappa: Create or update decomp.yaml"
+      },
+      {
         "command": "kappa.changeVoyageApiKey",
         "title": "Kappa: Set Voyage AI API Key"
+      },
+      {
+        "command": "kappa.changeEmbeddingProvider",
+        "title": "Kappa: Choose Embedding Provider"
       }
     ],
     "configuration": {
@@ -183,6 +199,20 @@
           "default": "",
           "description": "API key for Voyage AI service used for semantic embeddings and search",
           "scope": "application"
+        },
+        "kappa.embeddingProvider": {
+          "type": "string",
+          "default": "voyage",
+          "enum": [
+            "voyage",
+            "local"
+          ],
+          "enumDescriptions": [
+            "Use Voyage AI for embeddings (requires API key, higher quality)",
+            "Use local embedding model (free, runs offline, lower quality)"
+          ],
+          "description": "Choose which embedding provider to use for semantic search",
+          "scope": "application"
         }
       }
     },
@@ -226,6 +256,39 @@
           }
         ]
       }
+    ],
+    "languageModelTools": [
+      {
+        "name": "get_diff_between_object_files",
+        "displayName": "Objdiff",
+        "userDescription": "This tool uses Objdiff to compare two object files and shows their differences.",
+        "modelDescription": "This tool compares two object files and returns the differences between them. It can be used to understand changes in compiled code, such as function additions, removals, or modifications. You should use this tool whenever you compile the project and you need to analyze the differences between the target assembly and the one from your current C code. You need to specify which function to compare using the `functionName` parameter.",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "objdiff",
+        "icon": "media/branding/logo.png",
+        "inputSchema": {
+          "type": "object",
+          "required": [
+            "functionName",
+            "currentObjectFilePath",
+            "targetObjectFilePath"
+          ],
+          "properties": {
+            "functionName": {
+              "type": "string",
+              "description": "The name of the function to compare (e.g., 'sub_805ECC4', 'my_function')"
+            },
+            "currentObjectFilePath": {
+              "type": "string",
+              "description": "The path to the current object file, which is compiled from the source code (e.g., 'build/main.o')"
+            },
+            "targetObjectFilePath": {
+              "type": "string",
+              "description": "The path to the target object file, which is the one you want to compare against (e.g., 'expected/main.o')"
+            }
+          }
+        }
+      }
     ]
   },
   "scripts": {
@@ -244,12 +307,16 @@
     "@ast-grep/lang-c": "^0.0.2",
     "@ast-grep/napi": "^0.38.6",
     "@clangd/install": "0.1.20",
+    "@xenova/transformers": "^2.17.2",
     "dedent": "^1.6.0",
     "diff": "^8.0.2",
+    "objdiff-wasm": "3.0.0-beta.10",
     "rxdb": "^16.15.0",
     "rxjs": "^7.8.2",
     "umap-js": "^1.4.0",
-    "vscode-languageclient": "^9.0.1"
+    "vscode-languageclient": "^9.0.1",
+    "yaml": "^2.8.0",
+    "zod": "^4.0.5"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",

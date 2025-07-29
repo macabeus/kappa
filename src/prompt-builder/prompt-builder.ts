@@ -1,12 +1,15 @@
 import * as vscode from 'vscode';
-import { database } from '../db/db';
-import { getFuncContext } from './get-context-from-asm-function';
-import { craftPrompt } from './craft-prompt';
+import type { DecompFunction } from '../db/db';
+import { getFuncContext } from '../get-context-from-asm-function';
+import { craftPrompt, PromptMode } from './craft-prompt';
 
 /**
- * Open a new markdown file with a decompilation prompt for a function from the database.
+ * Return a decompilation prompt for the given function.
  */
-export async function createDecompilePromptFile(funcId: string): Promise<void> {
+export async function createDecompilePrompt(
+  decompFunction: DecompFunction,
+  promptMode: PromptMode,
+): Promise<string | undefined> {
   try {
     const rootWorkspace = vscode.workspace.workspaceFolders?.[0];
     if (!rootWorkspace) {
@@ -15,12 +18,6 @@ export async function createDecompilePromptFile(funcId: string): Promise<void> {
     }
 
     // Get the function from the database
-    const decompFunction = await database.getFunctionById(funcId);
-    if (!decompFunction) {
-      vscode.window.showErrorMessage(`Function with ID ${funcId} not found in database.`);
-      return;
-    }
-
     const { asmDeclaration, calledFunctionsDeclarations, sampling, typeDefinitions } =
       await getFuncContext(decompFunction);
 
@@ -32,13 +29,10 @@ export async function createDecompilePromptFile(funcId: string): Promise<void> {
       calledFunctionsDeclarations,
       sampling,
       typeDefinitions,
+      promptMode,
     });
 
-    const document = await vscode.workspace.openTextDocument({
-      content: promptContent,
-      language: 'markdown',
-    });
-    await vscode.window.showTextDocument(document);
+    return promptContent;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     vscode.window.showErrorMessage(`Failed to create decompilation prompt: ${errorMessage}`);

@@ -3,12 +3,9 @@ import { database } from '../db/db';
 import { isIndexingCodebase } from '../db/index-codebase';
 import { extractFunctionNameFromLine } from '../utils/asm-utils';
 
-/**
- * Code lens provider for assembly files to show "Build prompt to decompile it" actions
- */
 export class AssemblyCodeLensProvider implements vscode.CodeLensProvider {
-  #_onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
-  readonly onDidChangeCodeLenses: vscode.Event<void> = this.#_onDidChangeCodeLenses.event;
+  #onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
+  readonly onDidChangeCodeLenses: vscode.Event<void> = this.#onDidChangeCodeLenses.event;
 
   async provideCodeLenses(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.CodeLens[]> {
     if (!this.#isAssemblyFile(document) || isIndexingCodebase()) {
@@ -70,13 +67,25 @@ export class AssemblyCodeLensProvider implements vscode.CodeLensProvider {
         if (functionId) {
           const range = new vscode.Range(i, 0, i, line.length);
 
-          const codeLens = new vscode.CodeLens(range, {
+          const codeLensPromptBuilder = new vscode.CodeLens(range, {
             title: 'Build prompt to decompile it',
             command: 'kappa.runPromptBuilder',
             arguments: [functionId],
           });
 
-          codeLenses.push(codeLens);
+          const codeLensStartAgent = new vscode.CodeLens(range, {
+            title: 'Start agent to decompile it',
+            command: 'kappa.startDecompilerAgent',
+            arguments: [functionId],
+          });
+
+          const codeLensCreateDecompMeScratch = new vscode.CodeLens(range, {
+            title: 'Create scratch on decomp.me',
+            command: 'kappa.createDecompMeScratch',
+            arguments: [functionId],
+          });
+
+          codeLenses.push(codeLensPromptBuilder, codeLensStartAgent, codeLensCreateDecompMeScratch);
 
           functionMap.delete(functionName); // Remove to avoid duplicates
         }
@@ -104,6 +113,6 @@ export class AssemblyCodeLensProvider implements vscode.CodeLensProvider {
   }
 
   refresh(): void {
-    this.#_onDidChangeCodeLenses.fire();
+    this.#onDidChangeCodeLenses.fire();
   }
 }
