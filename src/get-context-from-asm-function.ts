@@ -106,7 +106,7 @@ export async function findOriginalAssemblyInBuildFolder({
   const assemblyFileBuffer = await vscode.workspace.fs.readFile(vscode.Uri.file(asmModulePath));
   const assemblyFileContent = new TextDecoder().decode(assemblyFileBuffer);
 
-  const asmCode = extractAssemblyFunction(assemblyFileContent, name);
+  const asmCode = extractAssemblyFunction(decompYaml.platform, assemblyFileContent, name);
 
   if (!asmCode) {
     console.warn(`Assembly function "${name}" not found in the assembly file "${asmModulePath}"`);

@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { getWorkspaceRoot } from './vscode-utils';
+import { DecompYamlPlatforms, loadDecompYaml } from '../configurations/decomp-yaml';
 
 /**
  * Extract function name from assembly code.
@@ -90,12 +91,12 @@ export function extractFunctionCallsFromAssembly(assembly: string): string[] {
 }
 
 /**
- * Extract a specific function from assembly code
+ * Extract a specific function from an arm assembly module source
  * @param assemblyContent The assembly file content
  * @param functionName The name of the function to extract
  * @returns The assembly function code or null if not found
  */
-export function extractAssemblyFunction(assemblyContent: string, functionName: string): string | null {
+function armExtractAssemblyFunction(assemblyContent: string, functionName: string): string | null {
   const lines = assemblyContent.split('\n');
   let functionStart = -1;
   let functionEnd = -1;
@@ -269,6 +270,124 @@ export function extractAssemblyFunction(assemblyContent: string, functionName: s
 }
 
 /**
+ * Extract a specific function from a mips assembly module source
+ * @param assemblyContent The assembly file content
+ * @param functionName The name of the function to extract
+ * @returns The assembly function code or null if not found
+ */
+function mipsExtractAssemblyFunction(assemblyContent: string, functionName: string): string | null {
+  const lines = assemblyContent.split('\n');
+  let functionStart = -1;
+  let functionEnd = -1;
+  let inFunction = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+
+    // If we haven't found the function start yet, look for it
+    if (!inFunction) {
+      // Look for thumb_func_start or arm_func_start with the function name
+      if (line.includes(`glabel ${functionName}`)) {
+        functionStart = i;
+        inFunction = true;
+        continue;
+      }
+
+      // Look for function label
+      if (line.startsWith(`${functionName}:`) && functionStart === -1) {
+        functionStart = i;
+        inFunction = true;
+      }
+    } else {
+      // If we're in a function, look for the end
+
+      // Look for thumb_func_end or arm_func_end
+      if (line.includes(`.size ${functionName}`)) {
+        functionEnd = i;
+        break;
+      }
+
+      // Look for the next function start (indicating this function has ended)
+      if (line.includes('glabel')) {
+        // Find the actual end of the current function by looking backwards for function data
+        for (let j = i - 1; j >= functionStart; j--) {
+          const prevLine = lines[j].trim();
+          // Look for the last piece of function data (constants, labels)
+          if (prevLine.startsWith('.size') || prevLine === '.align 3') {
+            functionEnd = j;
+            break;
+          }
+          // If we find a return instruction, include everything after it until we hit function data
+          if (prevLine.startsWith('jr ')) {
+            // Continue scanning for function data after the return
+            for (let k = j + 1; k < i; k++) {
+              const nextLine = lines[k].trim();
+              if (prevLine.startsWith('.size') || prevLine === '.align 3') {
+                functionEnd = k;
+              } else if (nextLine !== '' && !nextLine.startsWith('.align')) {
+                break;
+              }
+            }
+            if (functionEnd === -1) {
+              functionEnd = j;
+            }
+            break;
+          }
+        }
+        if (functionEnd === -1) {
+          functionEnd = i - 1;
+        }
+        break;
+      }
+    }
+  }
+
+  // Extract the function
+  if (functionStart !== -1 && functionEnd !== -1 && functionEnd >= functionStart) {
+    return lines.slice(functionStart, functionEnd + 1).join('\n');
+  }
+
+  return null;
+}
+
+export function extractAssemblyFunction(
+  platform: DecompYamlPlatforms,
+  assemblyContent: string,
+  functionName: string,
+): string | null {
+  switch (platform) {
+    case 'gba':
+    case 'nds':
+    case 'n3ds': {
+      return armExtractAssemblyFunction(assemblyContent, functionName);
+    }
+
+    case 'n64':
+    case 'ps1':
+    case 'ps2':
+    case 'psp': {
+      return mipsExtractAssemblyFunction(assemblyContent, functionName);
+    }
+
+    default: {
+      vscode.window
+        .showErrorMessage(
+          `Unsupported platform: ${platform}. Please, send a message on our discord requesting support for this platform.`,
+          'Open discord',
+          'Ignore',
+        )
+        .then(async (answer) => {
+          if (answer === 'Open discord') {
+            await vscode.env.openExternal(vscode.Uri.parse('https://discord.gg/sutqNShRRs'));
+          }
+        });
+
+      throw new Error(`Unsupported platform: ${platform}`);
+    }
+  }
+}
+
+/**
  * List all functions from a assembly module source
  * @param assemblyContent The assembly module souce
  * @returns Array of objects containing function name and code
@@ -400,6 +519,11 @@ export function listAssemblyFunctions(assemblyContent: string): Array<{ name: st
  * @param functionName The name of the function to remove
  */
 export async function removeAssemblyFunction(modulePath: string, functionName: string): Promise<void> {
+  const decompYaml = await loadDecompYaml();
+  if (!decompYaml) {
+    throw new Error('decomp.yaml not found');
+  }
+
   // Get workspace root
   const workspaceRoot = getWorkspaceRoot();
   if (!workspaceRoot) {
@@ -415,7 +539,7 @@ export async function removeAssemblyFunction(modulePath: string, functionName: s
   const assemblyFileContent = new TextDecoder().decode(assemblyFileBuffer);
 
   // Find the function to remove
-  const functionCode = extractAssemblyFunction(assemblyFileContent, functionName);
+  const functionCode = extractAssemblyFunction(decompYaml.platform, assemblyFileContent, functionName);
   if (!functionCode) {
     throw new Error(`Function "${functionName}" not found in assembly file "${modulePath}"`);
   }
