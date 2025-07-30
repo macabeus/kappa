@@ -33,6 +33,7 @@ async function main() {
     sourcesContent: false,
     platform: 'node',
     outfile: 'dist/extension.cjs',
+
     external: [
       'vscode',
       '@aws-sdk/client-s3',
@@ -43,6 +44,7 @@ async function main() {
       'onnxruntime-node',
       'sharp',
     ],
+
     logLevel: 'silent',
     plugins: [
       /* add to the end of plugins array */
