@@ -1,4 +1,43 @@
-# GrienPR - LLM Embedding Feature Documentation
+# GrienPR - Local Embedding Feature for Kappa
+
+## 🚀 Quick Summary
+
+This modification adds **free, offline embedding generation** to the Kappa VS Code extension, eliminating the need for paid API services like Voyage AI. Users can now generate semantic embeddings for assembly code analysis completely offline using a local machine learning model.
+
+### 🎯 What This Enables
+
+- **Free Operation**: No API keys or subscription costs required
+- **Offline Functionality**: Works without internet connection after initial setup
+- **Privacy**: All code analysis stays on your machine
+- **Seamless Integration**: Drop-in replacement for existing Voyage AI functionality
+- **Assembly Code Understanding**: Optimized for decompilation and reverse engineering workflows
+
+### 🔧 Key Functions & Commands
+
+| Command | Purpose | Usage |
+|---------|---------|-------|
+| `Kappa: Enable Local Embedding Model` | Downloads and sets up the local embedding model | One-time setup (~100MB download) |
+| `Kappa: Choose Embedding Provider` | Switch between Voyage AI and local embeddings | Access via Command Palette |
+| `Kappa: Index Codebase` | Generate embeddings for your entire codebase | Works with both providers |
+
+### 💡 Important Technical Details
+
+- **Model**: Uses `all-MiniLM-L6-v2` (384-dimensional embeddings)
+- **Performance**: Processes ~25 functions per batch with adaptive memory management
+- **Storage**: Models cached in VS Code global storage (~100MB)
+- **Compatibility**: 100% compatible with existing Kappa database and search functionality
+- **Quality**: Lower quality than Voyage AI but sufficient for most decompilation tasks
+
+### 🎮 How to Use
+
+1. **Setup**: Run `Kappa: Enable Local Embedding Model` (one-time setup)
+2. **Switch**: Use `Kappa: Choose Embedding Provider` to select "Local Embedding"
+3. **Index**: Run `Kappa: Index Codebase` to generate embeddings for your project
+4. **Use**: All existing Kappa features now work offline!
+
+---
+
+## Detailed Documentation
 
 This folder documents all changes made for implementing the LLM embedding feature in Kappa.
 
