@@ -6,7 +6,7 @@
   - Create LocalEmbeddingService class with same interface as Voyage AI
   - _Requirements: 1.2, 2.1, 2.2_
 
-- [ ] 2. Implement model download and initialization
+- [x] 2. Implement model download and initialization
 
   - [x] 2.1 Create model download functionality with progress tracking
 
@@ -21,46 +21,46 @@
     - Add error handling for model loading failures
     - _Requirements: 2.1, 6.2, 6.4_
 
-- [ ] 3. Create embedding generation functionality
+- [x] 3. Create embedding generation functionality
 
-  - [ ] 3.1 Implement getEmbedding method with Voyage AI compatibility
+  - [x] 3.1 Implement getEmbedding method with Voyage AI compatibility
 
     - Write embedding generation that processes assembly code strings
     - Return embeddings in same format as Voyage AI (number[][] arrays)
     - Handle batch processing of 25 functions like existing implementation
     - _Requirements: 2.1, 2.2, 2.3_
 
-  - [ ] 3.2 Add batch processing and memory management
+  - [x] 3.2 Add batch processing and memory management
     - Implement efficient batch processing for multiple assembly functions
     - Add memory monitoring and cleanup after embedding generation
     - Handle large batches by splitting into smaller chunks if needed
     - _Requirements: 2.2, 4.1, 4.3_
 
-- [ ] 4. Integrate with existing database system
+- [x] 4. Integrate with existing database system
 
-  - [ ] 4.1 Modify Database class to support local embeddings
+  - [x] 4.1 Modify Database class to support local embeddings
 
     - Update #getEmbedding method to use LocalEmbeddingService when enabled
     - Maintain fallback to Voyage AI when local model is not available
     - Ensure existing embedAsm method works unchanged with local embeddings
     - _Requirements: 2.1, 2.4, 6.3_
 
-  - [ ] 4.2 Add configuration management for embedding provider
+  - [x] 4.2 Add configuration management for embedding provider
     - Create settings to track which embedding provider is active
     - Store local model status and configuration in VS Code settings
     - Add methods to check if local embedding is enabled and available
     - _Requirements: 2.4, 5.1, 5.3_
 
-- [ ] 5. Create command palette integration
+- [x] 5. Create command palette integration
 
-  - [ ] 5.1 Add "Enable Local Embedding Model" command
+  - [x] 5.1 Add "Enable Local Embedding Model" command
 
     - Register new command in package.json contributes.commands section
     - Create command handler that triggers model download and initialization
     - Show progress notification during model setup process
     - _Requirements: 1.1, 1.2, 1.4_
 
-  - [ ] 5.2 Implement command execution workflow
+  - [x] 5.2 Implement command execution workflow
     - Write command handler that downloads model with progress feedback
     - Initialize LocalEmbeddingService and verify it works correctly
     - Update configuration to enable local embeddings after successful setup

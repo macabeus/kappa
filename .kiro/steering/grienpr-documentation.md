@@ -20,6 +20,7 @@ Use this format when updating the GrienPR documentation:
 
 ```markdown
 ### [Date] - Task Completed: [Task Name]
+
 - **Files Modified**: List of files changed
 - **Dependencies Added**: Any new packages
 - **Implementation Details**: Key technical decisions
@@ -29,6 +30,7 @@ Use this format when updating the GrienPR documentation:
 ## Automation Trigger
 
 This documentation should be updated:
+
 - After completing any task from the tasks.md file
 - When adding new dependencies to package.json
 - When creating or modifying significant files

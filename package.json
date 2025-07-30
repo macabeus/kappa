@@ -217,6 +217,54 @@
           ],
           "description": "Choose which embedding provider to use for semantic search",
           "scope": "application"
+        },
+        "kappa.localEmbeddingConfig": {
+          "type": "object",
+          "default": {
+            "enabled": false,
+            "modelName": "all-MiniLM-L6-v2",
+            "modelPath": "",
+            "lastUpdated": "",
+            "version": "1.0.0",
+            "downloadProgress": 0,
+            "isInitialized": false
+          },
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Whether local embedding model is enabled"
+            },
+            "modelName": {
+              "type": "string",
+              "description": "Name of the local embedding model"
+            },
+            "modelPath": {
+              "type": "string",
+              "description": "Path to the cached local embedding model files"
+            },
+            "lastUpdated": {
+              "type": "string",
+              "description": "ISO timestamp of when the model was last updated"
+            },
+            "version": {
+              "type": "string",
+              "description": "Version of the local embedding model configuration"
+            },
+            "downloadProgress": {
+              "type": "number",
+              "description": "Download progress percentage (0-100)"
+            },
+            "isInitialized": {
+              "type": "boolean",
+              "description": "Whether the local embedding model is initialized and ready"
+            },
+            "lastError": {
+              "type": "string",
+              "description": "Last error message if model initialization failed"
+            }
+          },
+          "description": "Configuration and status for local embedding model",
+          "scope": "application"
         }
       }
     },

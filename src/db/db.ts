@@ -7,6 +7,7 @@ import { getVoyageApiKey } from '../configurations/workspace-configs';
 import { checkFileExists, getRelativePath, getWorkspaceRoot } from '../utils/vscode-utils';
 import { extractFunctionCallsFromAssembly } from '../utils/asm-utils';
 import { LocalEmbeddingService } from './local-embedding';
+import { embeddingConfigManager, EmbeddingProviderStatus } from '../configurations/embedding-config';
 
 export type DecompFunctionDoc = {
   id: string;
@@ -46,18 +47,33 @@ class Database {
 
   /**
    * Initialize local embedding service
+   * This should be called during extension activation to set up the local embedding capability
    */
   initializeLocalEmbedding(extensionContext: vscode.ExtensionContext): void {
-    this.localEmbeddingService = new LocalEmbeddingService(extensionContext);
+    try {
+      this.localEmbeddingService = new LocalEmbeddingService(extensionContext);
+      console.log('Local embedding service initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize local embedding service:', error);
+      // Don't throw here - let the system continue with Voyage AI only
+      this.localEmbeddingService = undefined;
+    }
   }
 
   /**
    * Check if local embedding is enabled and available
    */
   async isLocalEmbeddingEnabled(): Promise<boolean> {
+    // Check configuration first
+    if (!embeddingConfigManager.isLocalEmbeddingEnabled()) {
+      return false;
+    }
+
+    // Check if service is available
     if (!this.localEmbeddingService) {
       return false;
     }
+
     return await this.localEmbeddingService.isAvailable();
   }
 
@@ -65,7 +81,30 @@ class Database {
    * Get the user's preferred embedding provider
    */
   private getEmbeddingProvider(): 'voyage' | 'local' {
-    return vscode.workspace.getConfiguration('kappa').get('embeddingProvider', 'voyage') as 'voyage' | 'local';
+    return embeddingConfigManager.getEmbeddingProvider();
+  }
+
+  /**
+   * Get the current status of embedding providers
+   */
+  async getEmbeddingProviderStatus(): Promise<EmbeddingProviderStatus> {
+    const configStatus = await embeddingConfigManager.getEmbeddingProviderStatus();
+
+    // Enhance with runtime availability check for local embedding
+    const localRuntimeAvailable = await this.isLocalEmbeddingEnabled();
+
+    // Update active provider based on runtime availability
+    let activeProvider = configStatus.activeProvider;
+    if (configStatus.preferred === 'local' && !localRuntimeAvailable) {
+      // If local is preferred but not available at runtime, fallback
+      activeProvider = configStatus.voyageAvailable ? 'voyage' : 'none';
+    }
+
+    return {
+      ...configStatus,
+      localAvailable: localRuntimeAvailable,
+      activeProvider,
+    };
   }
 
   async #initializeDb(): Promise<KappaRxDatabase> {
@@ -217,30 +256,53 @@ class Database {
   async #getEmbedding(asmCodes: string[]): Promise<number[][]> {
     const preferredProvider = this.getEmbeddingProvider();
 
-    if (preferredProvider === 'local') {
-      // User chose local embedding
-      if (!this.localEmbeddingService) {
-        throw new Error(
-          'Local embedding service not initialized. Please restart VS Code or switch to Voyage AI in settings.',
-        );
-      }
+    // Try local embedding first if preferred or if it's the only available option
+    if (preferredProvider === 'local' || (preferredProvider === 'voyage' && !getVoyageApiKey())) {
+      if (this.localEmbeddingService && (await this.localEmbeddingService.isAvailable())) {
+        try {
+          console.log(`Using local embedding service for ${asmCodes.length} assembly functions`);
+          return await this.localEmbeddingService.getEmbedding(asmCodes);
+        } catch (error) {
+          console.error('Local embedding failed:', error);
 
-      if (!(await this.localEmbeddingService.isAvailable())) {
-        throw new Error(
-          'Local embedding model not available. The model will be downloaded on first use. Please try again or switch to Voyage AI in settings.',
-        );
-      }
+          // If user explicitly chose local, don't fallback - throw the error
+          if (preferredProvider === 'local') {
+            throw new Error(
+              `Local embedding failed: ${error instanceof Error ? error.message : 'Unknown error'}. Please check the model status or switch to Voyage AI in settings.`,
+            );
+          }
 
-      try {
-        return await this.localEmbeddingService.getEmbedding(asmCodes);
-      } catch (error) {
+          // If we were trying local as fallback for missing Voyage key, continue to Voyage error
+          console.log('Local embedding failed, attempting Voyage AI fallback...');
+        }
+      } else if (preferredProvider === 'local') {
+        // User explicitly chose local but it's not available
         throw new Error(
-          `Local embedding failed: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again or switch to Voyage AI in settings.`,
+          'Local embedding model not available. The model needs to be downloaded first. Use the "Kappa: Enable Local Embedding Model" command or switch to Voyage AI in settings.',
         );
       }
-    } else {
-      // User chose Voyage AI (default)
+    }
+
+    // Use Voyage AI (either as preference or as fallback)
+    try {
+      console.log(`Using Voyage AI embedding service for ${asmCodes.length} assembly functions`);
       return await this.#getVoyageEmbedding(asmCodes);
+    } catch (error) {
+      // If Voyage fails and local is available, try local as final fallback
+      if (this.localEmbeddingService && (await this.localEmbeddingService.isAvailable())) {
+        console.log('Voyage AI failed, attempting local embedding fallback...');
+        try {
+          return await this.localEmbeddingService.getEmbedding(asmCodes);
+        } catch (localError) {
+          console.error('Both Voyage AI and local embedding failed:', { voyageError: error, localError });
+          throw new Error(
+            `Both embedding services failed. Voyage AI: ${error instanceof Error ? error.message : 'Unknown error'}. Local: ${localError instanceof Error ? localError.message : 'Unknown error'}`,
+          );
+        }
+      }
+
+      // No fallback available, throw original Voyage error
+      throw error;
     }
   }
 

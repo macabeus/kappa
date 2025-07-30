@@ -13,6 +13,7 @@ import { getRelativePath, getWorkspaceRoot, showFilePicker, showPicker } from '.
 import { database } from './db/db';
 import { indexCodebase } from './db/index-codebase';
 import { showChart } from './db/show-chart';
+import { embeddingConfigManager } from './configurations/embedding-config';
 import { GetDiffBetweenObjectFiles } from './language-model-tools/objdiff';
 import { AssemblyCodeLensProvider } from './providers/assembly-code-lens';
 import { objdiff } from './objdiff/objdiff';
@@ -195,7 +196,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
   });
 
   vscode.commands.registerCommand('kappa.changeVoyageApiKey', async () => {
-    const currentApiKey = vscode.workspace.getConfiguration('kappa').get('voyageApiKey', '');
+    const currentApiKey = embeddingConfigManager.getVoyageApiKey();
 
     const apiKey = await vscode.window.showInputBox({
       prompt: 'Enter your Voyage AI API Key',
@@ -214,25 +215,26 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
     });
 
     if (apiKey !== undefined) {
-      await vscode.workspace
-        .getConfiguration('kappa')
-        .update('voyageApiKey', apiKey, vscode.ConfigurationTarget.Global);
-
+      await embeddingConfigManager.setVoyageApiKey(apiKey);
       vscode.commands.executeCommand('setContext', 'walkthroughVoyageApiKeySet', true);
     }
   });
 
   vscode.commands.registerCommand('kappa.changeEmbeddingProvider', async () => {
-    const currentProvider = vscode.workspace.getConfiguration('kappa').get('embeddingProvider', 'voyage') as
-      | 'voyage'
-      | 'local';
+    const currentProvider = embeddingConfigManager.getEmbeddingProvider();
+    const status = await embeddingConfigManager.getEmbeddingProviderStatus();
 
     const provider = await vscode.window.showQuickPick(
       [
         {
           label: 'Voyage AI',
           description: 'High-quality embeddings via API (requires API key)',
-          detail: currentProvider === 'voyage' ? '✓ Currently selected' : 'Requires internet connection and API costs',
+          detail:
+            currentProvider === 'voyage'
+              ? '✓ Currently selected'
+              : status.voyageAvailable
+                ? 'API key configured, ready to use'
+                : 'Requires internet connection and API costs',
           value: 'voyage',
         },
         {
@@ -241,7 +243,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
           detail:
             currentProvider === 'local'
               ? '✓ Currently selected'
-              : 'Downloads model on first use (~100MB), lower quality than Voyage AI',
+              : status.localAvailable
+                ? 'Model downloaded and ready'
+                : 'Downloads model on first use (~100MB), lower quality than Voyage AI',
           value: 'local',
         },
       ],
@@ -252,13 +256,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
     );
 
     if (provider) {
-      await vscode.workspace
-        .getConfiguration('kappa')
-        .update('embeddingProvider', provider.value, vscode.ConfigurationTarget.Global);
+      await embeddingConfigManager.setEmbeddingProvider(provider.value as 'voyage' | 'local');
 
       if (provider.value === 'voyage') {
-        const hasApiKey = vscode.workspace.getConfiguration('kappa').get('voyageApiKey', '');
-        if (!hasApiKey) {
+        if (!embeddingConfigManager.isVoyageAvailable()) {
           const setApiKey = await vscode.window.showInformationMessage(
             'Voyage AI requires an API key. Would you like to set it now?',
             'Set API Key',
@@ -293,17 +294,23 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
         return;
       }
 
-      // Check current status
-      const status = await localService.getModelStatus();
+      // Check current status using configuration manager
+      const config = embeddingConfigManager.getLocalEmbeddingConfig();
+      const isAlreadyDownloaded = config?.enabled && config?.isInitialized;
 
-      if (status.isDownloaded) {
+      if (isAlreadyDownloaded) {
         const choice = await vscode.window.showInformationMessage(
-          'Local embedding model is already downloaded. Would you like to re-download it?',
+          'Local embedding model is already downloaded and configured. Would you like to re-download it?',
           'Re-download',
           'Cancel',
         );
 
         if (choice !== 'Re-download') {
+          // Just switch to local provider if not already selected
+          if (embeddingConfigManager.getEmbeddingProvider() !== 'local') {
+            await embeddingConfigManager.setEmbeddingProvider('local');
+            vscode.window.showInformationMessage('Switched to local embedding provider.');
+          }
           return;
         }
       }
@@ -311,10 +318,26 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
       // Download the model
       await localService.downloadModel();
 
+      // Initialize and verify the LocalEmbeddingService works correctly
+      await localService.initialize();
+
+      // Test the service with a simple embedding to verify it works
+      try {
+        const testEmbedding = await localService.getEmbedding(['test assembly function']);
+        if (!testEmbedding || testEmbedding.length === 0 || !Array.isArray(testEmbedding[0])) {
+          throw new Error('Service verification failed: invalid embedding output');
+        }
+        console.log(
+          `Local embedding service verified successfully. Generated embedding with ${testEmbedding[0].length} dimensions.`,
+        );
+      } catch (verificationError) {
+        throw new Error(
+          `Local embedding service verification failed: ${verificationError instanceof Error ? verificationError.message : 'unknown error'}`,
+        );
+      }
+
       // Switch to local embedding provider
-      await vscode.workspace
-        .getConfiguration('kappa')
-        .update('embeddingProvider', 'local', vscode.ConfigurationTarget.Global);
+      await embeddingConfigManager.setEmbeddingProvider('local');
 
       vscode.window.showInformationMessage(
         'Local embedding model enabled successfully! You can now use Kappa offline for semantic search.',
