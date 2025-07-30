@@ -85,6 +85,10 @@
       {
         "command": "kappa.changeEmbeddingProvider",
         "title": "Kappa: Choose Embedding Provider"
+      },
+      {
+        "command": "kappa.enableLocalEmbeddingModel",
+        "title": "Kappa: Enable Local Embedding Model"
       }
     ],
     "configuration": {

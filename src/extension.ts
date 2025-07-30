@@ -278,6 +278,54 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
     }
   });
 
+  vscode.commands.registerCommand('kappa.enableLocalEmbeddingModel', async () => {
+    try {
+      // Check if local embedding service is available
+      if (!database.isLocalEmbeddingEnabled) {
+        vscode.window.showErrorMessage('Local embedding service is not initialized. Please restart VS Code.');
+        return;
+      }
+
+      // Get the local embedding service from database
+      const localService = (database as any).localEmbeddingService;
+      if (!localService) {
+        vscode.window.showErrorMessage('Local embedding service is not available. Please restart VS Code.');
+        return;
+      }
+
+      // Check current status
+      const status = await localService.getModelStatus();
+
+      if (status.isDownloaded) {
+        const choice = await vscode.window.showInformationMessage(
+          'Local embedding model is already downloaded. Would you like to re-download it?',
+          'Re-download',
+          'Cancel',
+        );
+
+        if (choice !== 'Re-download') {
+          return;
+        }
+      }
+
+      // Download the model
+      await localService.downloadModel();
+
+      // Switch to local embedding provider
+      await vscode.workspace
+        .getConfiguration('kappa')
+        .update('embeddingProvider', 'local', vscode.ConfigurationTarget.Global);
+
+      vscode.window.showInformationMessage(
+        'Local embedding model enabled successfully! You can now use Kappa offline for semantic search.',
+      );
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      vscode.window.showErrorMessage(`Failed to enable local embedding model: ${errorMessage}`);
+      console.error('Error enabling local embedding model:', error);
+    }
+  });
+
   vscode.commands.registerCommand('kappa.runDecompYamlCreation', async () => {
     const decompYaml = await loadDecompYaml();
     await createDecompYaml(decompYaml);
