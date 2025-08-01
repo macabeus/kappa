@@ -1,5 +1,4 @@
-import * as vscode from 'vscode';
+import { embeddingConfigManager } from './embedding-config';
 
 export function getVoyageApiKey(): string {
-  return vscode.workspace.getConfiguration('kappa').get('voyageApiKey', '');
-}
+  return embeddingConfigManager.getVoyageApiKey();

@@ -20,6 +20,25 @@ VS Code extension designed to help you when decompiling a codebase.
 
 Make sure to follow the Kappa Setup walkthrough to get the extension working on your project.
 
+### 🔧 Embedding Providers
+
+Kappa uses semantic embeddings to find similar functions and provide better context for decompilation. You can choose between two embedding providers:
+
+#### 🌐 Voyage AI (Recommended)
+- **High-quality embeddings** optimized for code analysis
+- **Requires API key** and internet connection
+- **Usage-based pricing** (~$0.10 per 1M tokens)
+- **Setup:** Run `Kappa: Set Voyage AI API Key` from the command palette
+
+#### 💻 Local Embedding (Free)
+- **Completely free** and works offline
+- **No API keys required** - runs entirely on your machine
+- **Lower quality** than Voyage AI but sufficient for most tasks
+- **One-time setup** downloads ~100MB model
+- **Setup:** Run `Kappa: Enable Local Embedding Model` from the command palette
+
+**💡 Tip:** You can switch between providers anytime using `Kappa: Choose Embedding Provider`. Check your current status with `Kappa: Check Embedding Status`.
+
 ## ✨ AI Prompt Builder
 
 <img alt="Build prompt" src="./media/readme/build-prompt.gif" />
@@ -47,6 +66,44 @@ Click on "Start agent to decompile it" to have VS Code Copilot automatically dec
 Kappa bundles [`objdiff`](https://github.com/encounter/objdiff) into the extension. You can call it directly from the command palette by running `Compare a symbol from two object files`.
 
 ### Scatter Chart
+
+## 🔧 Troubleshooting
+
+### Local Embedding Issues
+
+**Model download fails:**
+- Check your internet connection
+- Ensure you have ~100MB free disk space
+- Try running `Kappa: Enable Local Embedding Model` again
+- Check VS Code Developer Tools (Help → Toggle Developer Tools) for detailed error logs
+
+**Memory issues during embedding generation:**
+- Close other memory-intensive applications
+- Restart VS Code to free up memory
+- The extension automatically manages memory and will retry with smaller batches
+
+**Permission errors:**
+- Ensure VS Code has write permissions to its global storage directory
+- On some systems, you may need to run VS Code as administrator
+
+**Model initialization fails:**
+- Try deleting the model cache and re-downloading:
+  - Open VS Code settings
+  - Search for "kappa.localEmbeddingConfig"
+  - Reset the configuration
+  - Run `Kappa: Enable Local Embedding Model` again
+
+### General Issues
+
+**Embedding provider not working:**
+- Run `Kappa: Check Embedding Status` to see detailed status
+- For Voyage AI: Verify your API key is set correctly
+- For Local: Ensure the model is downloaded and enabled
+
+**Configuration issues:**
+- Ensure your `decomp.yaml` file is properly formatted
+- The embedding provider configuration is stored per-project in `decomp.yaml`
+- API keys are stored globally in VS Code settings for security
 
 <img alt="Scatter Chart" src="./media/readme/scatter-chart.png" />
 
