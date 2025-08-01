@@ -221,7 +221,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
   });
 
   vscode.commands.registerCommand('kappa.changeEmbeddingProvider', async () => {
-    const currentProvider = embeddingConfigManager.getEmbeddingProvider();
+    const currentProvider = await embeddingConfigManager.getEmbeddingProvider();
     const status = await embeddingConfigManager.getEmbeddingProviderStatus();
 
     const provider = await vscode.window.showQuickPick(
@@ -283,69 +283,252 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
     try {
       // Check if local embedding service is available
       if (!database.isLocalEmbeddingEnabled) {
-        vscode.window.showErrorMessage('Local embedding service is not initialized. Please restart VS Code.');
+        vscode.window.showErrorMessage(
+          'Local embedding service is not initialized. Please restart VS Code and try again.',
+          'Restart VS Code'
+        ).then(selection => {
+          if (selection === 'Restart VS Code') {
+            vscode.commands.executeCommand('workbench.action.reloadWindow');
+          }
+        });
         return;
       }
 
       // Get the local embedding service from database
       const localService = (database as any).localEmbeddingService;
       if (!localService) {
-        vscode.window.showErrorMessage('Local embedding service is not available. Please restart VS Code.');
+        vscode.window.showErrorMessage(
+          'Local embedding service is not available. This might be due to missing dependencies or initialization issues.',
+          'Check Logs',
+          'Restart VS Code'
+        ).then(selection => {
+          if (selection === 'Check Logs') {
+            vscode.commands.executeCommand('workbench.action.toggleDevTools');
+          } else if (selection === 'Restart VS Code') {
+            vscode.commands.executeCommand('workbench.action.reloadWindow');
+          }
+        });
         return;
       }
 
       // Check current status using configuration manager
-      const config = embeddingConfigManager.getLocalEmbeddingConfig();
+      const config = await embeddingConfigManager.getLocalEmbeddingConfig();
       const isAlreadyDownloaded = config?.enabled && config?.isInitialized;
 
       if (isAlreadyDownloaded) {
         const choice = await vscode.window.showInformationMessage(
           'Local embedding model is already downloaded and configured. Would you like to re-download it?',
+          { modal: true },
           'Re-download',
+          'Switch to Local',
           'Cancel',
         );
 
-        if (choice !== 'Re-download') {
+        if (choice === 'Cancel') {
+          return;
+        } else if (choice === 'Switch to Local') {
           // Just switch to local provider if not already selected
-          if (embeddingConfigManager.getEmbeddingProvider() !== 'local') {
+          if ((await embeddingConfigManager.getEmbeddingProvider()) !== 'local') {
             await embeddingConfigManager.setEmbeddingProvider('local');
-            vscode.window.showInformationMessage('Switched to local embedding provider.');
+            vscode.window.showInformationMessage(
+              '✅ Switched to local embedding provider. Your project now uses offline embeddings!'
+            );
+          } else {
+            vscode.window.showInformationMessage(
+              '✅ Local embedding is already active for this project.'
+            );
           }
           return;
         }
+        // If 'Re-download' was selected, continue with download
       }
 
-      // Download the model
-      await localService.downloadModel();
+      // Show initial status
+      const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+      statusBarItem.text = '$(sync~spin) Setting up local embedding...';
+      statusBarItem.show();
 
-      // Initialize and verify the LocalEmbeddingService works correctly
-      await localService.initialize();
-
-      // Test the service with a simple embedding to verify it works
       try {
-        const testEmbedding = await localService.getEmbedding(['test assembly function']);
-        if (!testEmbedding || testEmbedding.length === 0 || !Array.isArray(testEmbedding[0])) {
-          throw new Error('Service verification failed: invalid embedding output');
+        // Download the model
+        console.log('Starting model download...');
+        await localService.downloadModel();
+        
+        statusBarItem.text = '$(sync~spin) Initializing model...';
+
+        // Initialize and verify the LocalEmbeddingService works correctly
+        console.log('Initializing local embedding service...');
+        await localService.initialize();
+
+        statusBarItem.text = '$(sync~spin) Verifying functionality...';
+
+        // Test the service with a simple embedding to verify it works
+        try {
+          console.log('Testing local embedding service...');
+          const testEmbedding = await localService.getEmbedding(['test assembly function']);
+          if (!testEmbedding || testEmbedding.length === 0 || !Array.isArray(testEmbedding[0])) {
+            throw new Error('Service verification failed: invalid embedding output');
+          }
+          console.log(
+            `Local embedding service verified successfully. Generated embedding with ${testEmbedding[0].length} dimensions.`,
+          );
+        } catch (verificationError) {
+          throw new Error(
+            `Local embedding service verification failed: ${verificationError instanceof Error ? verificationError.message : 'unknown error'}`,
+          );
         }
-        console.log(
-          `Local embedding service verified successfully. Generated embedding with ${testEmbedding[0].length} dimensions.`,
-        );
-      } catch (verificationError) {
-        throw new Error(
-          `Local embedding service verification failed: ${verificationError instanceof Error ? verificationError.message : 'unknown error'}`,
-        );
+
+        // Switch to local embedding provider
+        await embeddingConfigManager.setEmbeddingProvider('local');
+
+        statusBarItem.text = '$(check) Local embedding ready!';
+        setTimeout(() => statusBarItem.dispose(), 3000);
+
+        vscode.window.showInformationMessage(
+          '🎉 Local embedding model enabled successfully! You can now use Kappa offline for semantic search.',
+          'Index Codebase Now'
+        ).then(selection => {
+          if (selection === 'Index Codebase Now') {
+            vscode.commands.executeCommand('kappa.indexCodebase');
+          }
+        });
+
+      } finally {
+        // Clean up status bar item if still showing
+        if (statusBarItem) {
+          setTimeout(() => statusBarItem.dispose(), 5000);
+        }
       }
 
-      // Switch to local embedding provider
-      await embeddingConfigManager.setEmbeddingProvider('local');
-
-      vscode.window.showInformationMessage(
-        'Local embedding model enabled successfully! You can now use Kappa offline for semantic search.',
-      );
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      vscode.window.showErrorMessage(`Failed to enable local embedding model: ${errorMessage}`);
       console.error('Error enabling local embedding model:', error);
+      
+      // Provide specific error messages and troubleshooting guidance
+      let errorMessage = 'Failed to enable local embedding model';
+      let actions: string[] = ['OK'];
+      
+      if (error instanceof Error) {
+        const message = error.message.toLowerCase();
+        
+        if (message.includes('network') || message.includes('fetch') || message.includes('connection')) {
+          errorMessage = 'Network error while downloading the model. Please check your internet connection and try again.';
+          actions = ['Retry', 'Check Network', 'OK'];
+        } else if (message.includes('memory') || message.includes('insufficient')) {
+          errorMessage = 'Insufficient memory to download or initialize the model. Try closing other applications and retry.';
+          actions = ['Retry', 'Check Memory Usage', 'OK'];
+        } else if (message.includes('space') || message.includes('disk')) {
+          errorMessage = 'Insufficient disk space to download the model (~100MB required). Please free up space and try again.';
+          actions = ['Retry', 'Check Disk Space', 'OK'];
+        } else if (message.includes('permission')) {
+          errorMessage = 'Permission error while setting up the model. Please check file permissions and try again.';
+          actions = ['Retry', 'Check Permissions', 'OK'];
+        } else {
+          errorMessage = `Setup failed: ${error.message}`;
+          actions = ['Retry', 'Check Logs', 'OK'];
+        }
+      }
+
+      vscode.window.showErrorMessage(errorMessage, ...actions).then(selection => {
+        switch (selection) {
+          case 'Retry':
+            vscode.commands.executeCommand('kappa.enableLocalEmbeddingModel');
+            break;
+          case 'Check Network':
+            vscode.env.openExternal(vscode.Uri.parse('https://www.google.com'));
+            break;
+          case 'Check Memory Usage':
+            vscode.commands.executeCommand('workbench.action.openProcessExplorer');
+            break;
+          case 'Check Disk Space':
+            // Open file explorer to check disk space
+            vscode.commands.executeCommand('workbench.action.files.openFolder');
+            break;
+          case 'Check Permissions':
+            vscode.window.showInformationMessage(
+              'Please ensure VS Code has write permissions to its global storage directory. You may need to run VS Code as administrator or check folder permissions.'
+            );
+            break;
+          case 'Check Logs':
+            vscode.commands.executeCommand('workbench.action.toggleDevTools');
+            break;
+        }
+      });
+    }
+  });
+
+  vscode.commands.registerCommand('kappa.checkEmbeddingStatus', async () => {
+    try {
+      const status = await embeddingConfigManager.getEmbeddingProviderStatus();
+      const config = await embeddingConfigManager.getConfigurationSummary();
+      
+      let statusMessage = '📊 **Embedding Provider Status**\n\n';
+      
+      // Current provider
+      statusMessage += `**Active Provider:** ${status.activeProvider === 'none' ? '❌ None' : 
+        status.activeProvider === 'voyage' ? '🌐 Voyage AI' : '💻 Local Embedding'}\n`;
+      
+      statusMessage += `**Preferred Provider:** ${status.preferred === 'voyage' ? '🌐 Voyage AI' : '💻 Local Embedding'}\n\n`;
+      
+      // Voyage AI status
+      statusMessage += `**🌐 Voyage AI:**\n`;
+      statusMessage += `  • API Key: ${status.voyageAvailable ? '✅ Configured' : '❌ Not set'}\n`;
+      statusMessage += `  • Status: ${status.voyageAvailable ? '🟢 Ready' : '🔴 Requires API key'}\n\n`;
+      
+      // Local embedding status
+      statusMessage += `**💻 Local Embedding:**\n`;
+      statusMessage += `  • Enabled: ${status.localAvailable ? '✅ Yes' : '❌ No'}\n`;
+      statusMessage += `  • Model: ${status.localConfig?.modelName || 'Not configured'}\n`;
+      statusMessage += `  • Status: ${status.localAvailable ? '🟢 Ready' : '🔴 Needs setup'}\n`;
+      
+      if (status.localConfig?.lastUpdated) {
+        const lastUpdated = new Date(status.localConfig.lastUpdated).toLocaleDateString();
+        statusMessage += `  • Last Updated: ${lastUpdated}\n`;
+      }
+      
+      // Recommendations
+      statusMessage += '\n**💡 Recommendations:**\n';
+      if (status.activeProvider === 'none') {
+        statusMessage += '• Set up at least one embedding provider to use Kappa features\n';
+        if (!status.voyageAvailable) {
+          statusMessage += '• Configure Voyage AI API key for high-quality embeddings\n';
+        }
+        if (!status.localAvailable) {
+          statusMessage += '• Enable local embedding for free, offline operation\n';
+        }
+      } else if (status.activeProvider !== status.preferred) {
+        statusMessage += `• Your preferred provider (${status.preferred}) is not available\n`;
+        statusMessage += `• Currently using fallback provider (${status.activeProvider})\n`;
+      } else {
+        statusMessage += '• ✅ Everything looks good!\n';
+      }
+
+      const actions: string[] = [];
+      if (!status.voyageAvailable) {
+        actions.push('Set Voyage API Key');
+      }
+      if (!status.localAvailable) {
+        actions.push('Enable Local Embedding');
+      }
+      actions.push('Change Provider', 'OK');
+
+      const selection = await vscode.window.showInformationMessage(statusMessage, { modal: true }, ...actions);
+      
+      switch (selection) {
+        case 'Set Voyage API Key':
+          await vscode.commands.executeCommand('kappa.changeVoyageApiKey');
+          break;
+        case 'Enable Local Embedding':
+          await vscode.commands.executeCommand('kappa.enableLocalEmbeddingModel');
+          break;
+        case 'Change Provider':
+          await vscode.commands.executeCommand('kappa.changeEmbeddingProvider');
+          break;
+      }
+
+    } catch (error) {
+      console.error('Error checking embedding status:', error);
+      vscode.window.showErrorMessage(
+        `Failed to check embedding status: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   });
 

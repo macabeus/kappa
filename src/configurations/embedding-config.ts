@@ -1,4 +1,7 @@
 import * as vscode from 'vscode';
+import { loadDecompYaml, DecompYaml } from './decomp-yaml';
+import { checkFileExists } from '../utils/vscode-utils';
+import YAML from 'yaml';
 
 /**
  * Configuration interface for local embedding model
@@ -27,30 +30,26 @@ export interface EmbeddingProviderStatus {
 
 /**
  * Configuration manager for embedding providers
- * Handles VS Code settings for both Voyage AI and local embedding models
+ * Reads configuration from decomp.yaml for project-level consistency
+ * Falls back to VS Code settings for API keys and personal preferences
  */
 export class EmbeddingConfigManager {
   private static readonly CONFIG_SECTION = 'kappa';
-  private static readonly LOCAL_EMBEDDING_CONFIG_KEY = 'localEmbeddingConfig';
-  private static readonly EMBEDDING_PROVIDER_KEY = 'embeddingProvider';
   private static readonly VOYAGE_API_KEY = 'voyageApiKey';
 
   /**
-   * Get the user's preferred embedding provider
+   * Get the user's preferred embedding provider from decomp.yaml
    */
-  getEmbeddingProvider(): 'voyage' | 'local' {
-    return vscode.workspace
-      .getConfiguration(EmbeddingConfigManager.CONFIG_SECTION)
-      .get(EmbeddingConfigManager.EMBEDDING_PROVIDER_KEY, 'voyage') as 'voyage' | 'local';
+  async getEmbeddingProvider(): Promise<'voyage' | 'local'> {
+    const decompYaml = await loadDecompYaml();
+    return decompYaml?.tools?.kappa?.embeddingProvider || 'voyage';
   }
 
   /**
-   * Set the user's preferred embedding provider
+   * Set the user's preferred embedding provider in decomp.yaml
    */
   async setEmbeddingProvider(provider: 'voyage' | 'local'): Promise<void> {
-    await vscode.workspace
-      .getConfiguration(EmbeddingConfigManager.CONFIG_SECTION)
-      .update(EmbeddingConfigManager.EMBEDDING_PROVIDER_KEY, provider, vscode.ConfigurationTarget.Global);
+    await this.updateDecompYamlEmbeddingConfig({ embeddingProvider: provider });
   }
 
   /**
@@ -72,30 +71,43 @@ export class EmbeddingConfigManager {
   }
 
   /**
-   * Get the local embedding model configuration
+   * Get the local embedding model configuration from decomp.yaml
    */
-  getLocalEmbeddingConfig(): LocalEmbeddingConfig | null {
-    const config = vscode.workspace
-      .getConfiguration(EmbeddingConfigManager.CONFIG_SECTION)
-      .get<LocalEmbeddingConfig>(EmbeddingConfigManager.LOCAL_EMBEDDING_CONFIG_KEY);
+  async getLocalEmbeddingConfig(): Promise<LocalEmbeddingConfig | null> {
+    const decompYaml = await loadDecompYaml();
+    const localEmbedding = decompYaml?.tools?.kappa?.localEmbedding;
+    
+    if (!localEmbedding) {
+      return null;
+    }
 
-    return config || null;
+    // Convert decomp.yaml format to LocalEmbeddingConfig format
+    return {
+      enabled: localEmbedding.enabled,
+      modelName: localEmbedding.modelName,
+      modelPath: '', // This is runtime information, not stored in decomp.yaml
+      lastUpdated: new Date().toISOString(),
+      version: '1.0.0',
+    };
   }
 
   /**
-   * Set the local embedding model configuration
+   * Set the local embedding model configuration in decomp.yaml
    */
   async setLocalEmbeddingConfig(config: LocalEmbeddingConfig): Promise<void> {
-    await vscode.workspace
-      .getConfiguration(EmbeddingConfigManager.CONFIG_SECTION)
-      .update(EmbeddingConfigManager.LOCAL_EMBEDDING_CONFIG_KEY, config, vscode.ConfigurationTarget.Global);
+    await this.updateDecompYamlEmbeddingConfig({
+      localEmbedding: {
+        enabled: config.enabled,
+        modelName: config.modelName,
+      },
+    });
   }
 
   /**
    * Update specific fields in the local embedding configuration
    */
   async updateLocalEmbeddingConfig(updates: Partial<LocalEmbeddingConfig>): Promise<void> {
-    const currentConfig = this.getLocalEmbeddingConfig() || this.getDefaultLocalEmbeddingConfig();
+    const currentConfig = (await this.getLocalEmbeddingConfig()) || this.getDefaultLocalEmbeddingConfig();
     const updatedConfig = { ...currentConfig, ...updates };
     await this.setLocalEmbeddingConfig(updatedConfig);
   }
@@ -103,16 +115,16 @@ export class EmbeddingConfigManager {
   /**
    * Check if local embedding is enabled in configuration
    */
-  isLocalEmbeddingEnabled(): boolean {
-    const config = this.getLocalEmbeddingConfig();
+  async isLocalEmbeddingEnabled(): Promise<boolean> {
+    const config = await this.getLocalEmbeddingConfig();
     return config?.enabled === true;
   }
 
   /**
    * Check if local embedding model is initialized
    */
-  isLocalEmbeddingInitialized(): boolean {
-    const config = this.getLocalEmbeddingConfig();
+  async isLocalEmbeddingInitialized(): Promise<boolean> {
+    const config = await this.getLocalEmbeddingConfig();
     return config?.enabled === true && config?.isInitialized === true;
   }
 
@@ -127,10 +139,10 @@ export class EmbeddingConfigManager {
    * Get comprehensive status of all embedding providers
    */
   async getEmbeddingProviderStatus(): Promise<EmbeddingProviderStatus> {
-    const preferred = this.getEmbeddingProvider();
+    const preferred = await this.getEmbeddingProvider();
     const voyageAvailable = this.isVoyageAvailable();
-    const localConfig = this.getLocalEmbeddingConfig();
-    const localAvailable = this.isLocalEmbeddingEnabled();
+    const localConfig = await this.getLocalEmbeddingConfig();
+    const localAvailable = await this.isLocalEmbeddingEnabled();
 
     let activeProvider: 'voyage' | 'local' | 'none' = 'none';
 
@@ -168,9 +180,12 @@ export class EmbeddingConfigManager {
    * Clear local embedding configuration completely
    */
   async clearLocalEmbeddingConfig(): Promise<void> {
-    await vscode.workspace
-      .getConfiguration(EmbeddingConfigManager.CONFIG_SECTION)
-      .update(EmbeddingConfigManager.LOCAL_EMBEDDING_CONFIG_KEY, undefined, vscode.ConfigurationTarget.Global);
+    await this.updateDecompYamlEmbeddingConfig({
+      localEmbedding: {
+        enabled: false,
+        modelName: 'all-MiniLM-L6-v2',
+      },
+    });
   }
 
   /**
@@ -242,24 +257,76 @@ export class EmbeddingConfigManager {
   /**
    * Get configuration summary for debugging
    */
-  getConfigurationSummary(): {
+  async getConfigurationSummary(): Promise<{
     embeddingProvider: string;
     voyageApiKeySet: boolean;
     localEmbeddingEnabled: boolean;
     localEmbeddingInitialized: boolean;
     localModelName?: string;
     lastUpdated?: string;
-  } {
-    const localConfig = this.getLocalEmbeddingConfig();
+  }> {
+    const localConfig = await this.getLocalEmbeddingConfig();
 
     return {
-      embeddingProvider: this.getEmbeddingProvider(),
+      embeddingProvider: await this.getEmbeddingProvider(),
       voyageApiKeySet: this.isVoyageAvailable(),
-      localEmbeddingEnabled: this.isLocalEmbeddingEnabled(),
-      localEmbeddingInitialized: this.isLocalEmbeddingInitialized(),
+      localEmbeddingEnabled: await this.isLocalEmbeddingEnabled(),
+      localEmbeddingInitialized: await this.isLocalEmbeddingInitialized(),
       localModelName: localConfig?.modelName,
       lastUpdated: localConfig?.lastUpdated,
     };
+  }
+
+  /**
+   * Update embedding configuration in decomp.yaml
+   */
+  private async updateDecompYamlEmbeddingConfig(updates: {
+    embeddingProvider?: 'voyage' | 'local';
+    localEmbedding?: {
+      enabled: boolean;
+      modelName: string;
+    };
+  }): Promise<void> {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri;
+    if (!workspaceRoot) {
+      throw new Error('No workspace found. Please open a folder.');
+    }
+
+    const ymlExtension = vscode.Uri.joinPath(workspaceRoot, 'decomp.yml');
+    const yamlExtension = vscode.Uri.joinPath(workspaceRoot, 'decomp.yaml');
+    
+    let decompYamlPath: vscode.Uri;
+    if (await checkFileExists(ymlExtension.fsPath)) {
+      decompYamlPath = ymlExtension;
+    } else if (await checkFileExists(yamlExtension.fsPath)) {
+      decompYamlPath = yamlExtension;
+    } else {
+      throw new Error('decomp.yaml not found. Please create one first.');
+    }
+
+    // Read current configuration
+    const bufferContent = await vscode.workspace.fs.readFile(decompYamlPath);
+    const rawContent = bufferContent.toString();
+    const currentConfig = YAML.parse(rawContent);
+
+    // Update the configuration
+    if (!currentConfig.tools) {
+      currentConfig.tools = {};
+    }
+    if (!currentConfig.tools.kappa) {
+      currentConfig.tools.kappa = {};
+    }
+
+    if (updates.embeddingProvider) {
+      currentConfig.tools.kappa.embeddingProvider = updates.embeddingProvider;
+    }
+
+    if (updates.localEmbedding) {
+      currentConfig.tools.kappa.localEmbedding = updates.localEmbedding;
+    }
+
+    // Write back to file
+    await vscode.workspace.fs.writeFile(decompYamlPath, Buffer.from(YAML.stringify(currentConfig)));
   }
 }
 

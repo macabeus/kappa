@@ -80,15 +80,23 @@
       },
       {
         "command": "kappa.changeVoyageApiKey",
-        "title": "Kappa: Set Voyage AI API Key"
+        "title": "Kappa: Set Voyage AI API Key",
+        "category": "Kappa Embedding"
       },
       {
         "command": "kappa.changeEmbeddingProvider",
-        "title": "Kappa: Choose Embedding Provider"
+        "title": "Kappa: Choose Embedding Provider",
+        "category": "Kappa Embedding"
       },
       {
         "command": "kappa.enableLocalEmbeddingModel",
-        "title": "Kappa: Enable Local Embedding Model"
+        "title": "Kappa: Enable Local Embedding Model (Free, Offline)",
+        "category": "Kappa Embedding"
+      },
+      {
+        "command": "kappa.checkEmbeddingStatus",
+        "title": "Kappa: Check Embedding Status",
+        "category": "Kappa Embedding"
       }
     ],
     "configuration": {
@@ -201,7 +209,7 @@
         "kappa.voyageApiKey": {
           "type": "string",
           "default": "",
-          "description": "API key for Voyage AI service used for semantic embeddings and search",
+          "description": "🔑 API key for Voyage AI embedding service. Get yours at https://www.voyageai.com/ (~$0.10 per 1M tokens)",
           "scope": "application"
         },
         "kappa.embeddingProvider": {
@@ -212,10 +220,10 @@
             "local"
           ],
           "enumDescriptions": [
-            "Use Voyage AI for embeddings (requires API key, higher quality)",
-            "Use local embedding model (free, runs offline, lower quality)"
+            "🌐 Voyage AI - High-quality embeddings (requires API key and internet connection)",
+            "💻 Local Embedding - Free offline embeddings (one-time ~100MB download, sufficient quality)"
           ],
-          "description": "Choose which embedding provider to use for semantic search",
+          "description": "🎯 Choose your embedding provider for semantic search and function similarity analysis",
           "scope": "application"
         },
         "kappa.localEmbeddingConfig": {
@@ -263,7 +271,7 @@
               "description": "Last error message if model initialization failed"
             }
           },
-          "description": "Configuration and status for local embedding model",
+          "description": "💻 Configuration and status for local embedding model (managed automatically, do not edit manually)",
           "scope": "application"
         }
       }

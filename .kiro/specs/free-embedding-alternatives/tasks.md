@@ -67,47 +67,68 @@
     - Display success message when local embedding model is ready
     - _Requirements: 1.2, 1.4, 5.3_
 
-- [ ] 6. Add error handling and user feedback
+- [x] 6. Fix embedding configuration to use decomp.yaml
 
-  - [ ] 6.1 Implement comprehensive error handling
+  - [x] 6.1 Update decomp.yaml schema to include embedding configuration
+
+    - Add embeddingProvider field to kappa tools section
+    - Add localEmbedding configuration with enabled and modelName fields
+    - Update createDecompYaml to include default embedding configuration
+    - _Requirements: Per-project consistency, team collaboration_
+
+  - [x] 6.2 Migrate EmbeddingConfigManager from VS Code settings to decomp.yaml
+    - Update all configuration methods to read from decomp.yaml instead of VS Code settings
+    - Keep VS Code settings only for API keys (voyageApiKey) as sensitive information
+    - Update all async method signatures for configuration access
+    - _Requirements: Per-project consistency, team collaboration_
+
+  - [x] 6.3 Update database and local embedding service integration
+    - Update database class to use async configuration methods
+    - Update local embedding service to read configuration from decomp.yaml
+    - Update command handlers to use async configuration access
+    - _Requirements: Per-project consistency, team collaboration_
+
+- [x] 7. Add error handling and user feedback
+
+  - [x] 7.1 Implement comprehensive error handling
 
     - Add try-catch blocks around model download and initialization
     - Create specific error types for different failure scenarios
     - Implement retry logic for network-related download failures
     - _Requirements: 6.1, 6.2, 6.4_
 
-  - [ ] 6.2 Add user feedback and status reporting
+  - [x] 7.2 Add user feedback and status reporting
     - Show clear progress during model download with estimated time
     - Display informative error messages when operations fail
     - Add status indicators to show when local embedding is active
     - Provide troubleshooting guidance for common issues
     - _Requirements: 5.1, 5.2, 5.3, 6.1_
 
-- [ ] 7. Create unit tests for local embedding functionality
+- [x] 8. Create unit tests for local embedding functionality
 
-  - [ ] 7.1 Write tests for LocalEmbeddingService
+  - [x] 8.1 Write tests for LocalEmbeddingService
 
     - Test model initialization and embedding generation
     - Test batch processing with various input sizes
     - Test error handling for model failures and network issues
     - _Requirements: 2.1, 2.2, 4.1_
 
-  - [ ] 7.2 Write integration tests for database integration
+  - [x] 8.2 Write integration tests for database integration
     - Test that local embeddings integrate correctly with existing database
     - Verify that similarity search works with locally generated embeddings
     - Test fallback behavior when local model is unavailable
     - _Requirements: 2.4, 4.1, 6.3_
 
-- [ ] 8. Add documentation and user guidance
+- [x] 9. Add documentation and user guidance
 
-  - [ ] 8.1 Update README with local embedding instructions
+  - [x] 9.1 Update README with local embedding instructions
 
     - Document the new "Enable Local Embedding Model" command
     - Explain benefits of local vs cloud embedding options
     - Add troubleshooting section for common local embedding issues
     - _Requirements: 5.1, 5.3, 6.1_
 
-  - [ ] 8.2 Add inline help and tooltips
+  - [x] 9.2 Add inline help and tooltips
     - Add helpful descriptions to command palette entries
     - Include tooltips explaining local embedding benefits
     - Provide guidance on when to use local vs cloud embeddings

@@ -191,7 +191,7 @@ export class LocalEmbeddingService implements EmbeddingProvider {
   async isAvailable(): Promise<boolean> {
     try {
       // Check configuration first
-      if (!embeddingConfigManager.isLocalEmbeddingEnabled()) {
+      if (!(await embeddingConfigManager.isLocalEmbeddingEnabled())) {
         return false;
       }
 
@@ -221,46 +221,113 @@ export class LocalEmbeddingService implements EmbeddingProvider {
 
     console.log('Initializing local embedding service...');
 
-    try {
-      // Load the model with proper configuration
-      await this.loadModel();
+    const maxRetries = 2;
+    let lastError: Error | null = null;
 
-      // Verify model is loaded successfully
-      if (!this.model) {
-        throw new Error('Model loading completed but model is null');
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Initialization attempt ${attempt}/${maxRetries}`);
+
+        // Reset state before each attempt
+        this.isInitialized = false;
+        this.model = null;
+
+        // Load the model with proper configuration
+        await this.loadModel();
+
+        // Verify model is loaded successfully
+        if (!this.model) {
+          throw new Error('Model loading completed but model is null');
+        }
+
+        // Test the model with a simple embedding to ensure it works
+        try {
+          console.log('Testing model functionality...');
+          const testResult = await this.model(['test'], {
+            pooling: 'mean',
+            normalize: true,
+          });
+
+          if (!testResult || !testResult.data || testResult.data.length === 0) {
+            throw new Error('Model test failed: no valid output generated');
+          }
+
+          console.log('Model test successful');
+        } catch (testError) {
+          console.error('Model functionality test failed:', testError);
+          this.model = null;
+          throw new Error(`Model functionality test failed: ${testError instanceof Error ? testError.message : 'unknown error'}`);
+        }
+
+        // Mark as initialized only after successful model loading and testing
+        this.isInitialized = true;
+        console.log('Local embedding service initialized successfully');
+        return;
+
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        console.error(`Initialization attempt ${attempt} failed:`, lastError.message);
+
+        // Clean up on failure
+        this.isInitialized = false;
+        this.model = null;
+
+        // If this is a memory error and we have more attempts, try to free memory
+        if (attempt < maxRetries && lastError.message.toLowerCase().includes('memory')) {
+          console.log('Memory error detected, attempting cleanup before retry...');
+          this.memoryMonitor.forceGarbageCollection();
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+          continue;
+        }
+
+        // If this is the last attempt or a non-retryable error, break
+        if (attempt === maxRetries || this.isNonRetryableError(lastError)) {
+          break;
+        }
+
+        // Wait before retry
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
+    }
 
-      // Mark as initialized only after successful model loading
-      this.isInitialized = true;
-      console.log('Local embedding service initialized successfully');
-    } catch (error) {
-      // Ensure clean state on initialization failure
-      this.isInitialized = false;
-      this.model = null;
+    // All attempts failed
+    console.error('Failed to initialize local embedding service after all attempts:', lastError);
 
-      console.error('Failed to initialize local embedding service:', error);
+    // Re-throw EmbeddingException as-is
+    if (lastError instanceof EmbeddingException) {
+      throw lastError;
+    }
 
-      // Re-throw EmbeddingException as-is
-      if (error instanceof EmbeddingException) {
-        throw error;
-      }
-
-      // Wrap other errors in EmbeddingException
-      if (error instanceof Error) {
-        throw new EmbeddingException(
-          EmbeddingError.MODEL_LOAD_FAILED,
-          `Failed to initialize local embedding model: ${error.message}`,
-          true,
-        );
-      }
-
-      // Handle non-Error objects
+    // Wrap other errors in EmbeddingException
+    if (lastError instanceof Error) {
       throw new EmbeddingException(
         EmbeddingError.MODEL_LOAD_FAILED,
-        `Unknown error during initialization: ${String(error)}`,
+        `Failed to initialize local embedding model after ${maxRetries} attempts: ${lastError.message}`,
         true,
       );
     }
+
+    // Handle non-Error objects
+    throw new EmbeddingException(
+      EmbeddingError.MODEL_LOAD_FAILED,
+      `Unknown error during initialization after ${maxRetries} attempts: ${String(lastError)}`,
+      true,
+    );
+  }
+
+  /**
+   * Check if an error is non-retryable (should not be retried)
+   */
+  private isNonRetryableError(error: Error): boolean {
+    const message = error.message.toLowerCase();
+    return (
+      message.includes('permission') ||
+      message.includes('access denied') ||
+      message.includes('not found') ||
+      message.includes('invalid') ||
+      message.includes('corrupted') ||
+      message.includes('unsupported')
+    );
   }
 
   async embed(texts: string[]): Promise<number[][]> {
@@ -498,96 +565,145 @@ export class LocalEmbeddingService implements EmbeddingProvider {
   }
 
   /**
-   * Download the model with progress tracking
+   * Download the model with progress tracking and retry logic
    * This method fetches the Xenova/all-MiniLM-L6-v2 model from Hugging Face
    * and stores it in VS Code extension global storage directory
    */
   async downloadModel(): Promise<void> {
-    try {
-      // Ensure the models directory exists in global storage
-      const modelsDir = vscode.Uri.joinPath(this.extensionContext.globalStorageUri, 'models');
+    const maxRetries = 3;
+    const retryDelay = 2000; // 2 seconds
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        await vscode.workspace.fs.createDirectory(modelsDir);
-      } catch (error) {
-        // Directory might already exist, ignore error
-      }
-
-      // Show progress notification
-      await vscode.window.withProgress(
-        {
-          location: vscode.ProgressLocation.Notification,
-          title: 'Downloading Local Embedding Model',
-          cancellable: false,
-        },
-        async (progress) => {
-          let lastReportedPercent = 0;
-
-          // Create the embedding pipeline with progress tracking
-          this.model = await pipeline('feature-extraction', this.config.huggingFaceId, {
-            progress_callback: (progressInfo: any) => {
-              if (progressInfo.status === 'downloading') {
-                const percent = Math.round((progressInfo.loaded / progressInfo.total) * 100);
-
-                // Only update progress if there's a meaningful change
-                if (percent > lastReportedPercent) {
-                  const increment = percent - lastReportedPercent;
-                  progress.report({
-                    increment,
-                    message: `${percent}% - ${progressInfo.file || 'model files'}`,
-                  });
-                  lastReportedPercent = percent;
-                }
-              } else if (progressInfo.status === 'ready') {
-                progress.report({
-                  increment: 100 - lastReportedPercent,
-                  message: 'Model ready!',
-                });
-              } else if (progressInfo.status === 'initiate') {
-                progress.report({
-                  increment: 0,
-                  message: 'Initializing download...',
-                });
-              }
-            },
-          });
-
-          // Final progress update
-          progress.report({
-            increment: 100 - lastReportedPercent,
-            message: 'Download complete!',
-          });
-        },
-      );
-
-      // Update configuration to mark model as downloaded
-      await this.updateModelConfig({
-        enabled: true,
-        modelName: this.config.name,
-        modelPath: this.getModelCachePath(),
-        lastUpdated: new Date().toISOString(),
-        version: '1.0.0',
-      });
-
-      vscode.window.showInformationMessage(
-        `Local embedding model "${this.config.name}" downloaded successfully! You can now use Kappa offline.`,
-      );
-    } catch (error) {
-      if (error instanceof Error) {
-        if (error.message.includes('network') || error.message.includes('fetch')) {
-          throw new EmbeddingException(
-            EmbeddingError.NETWORK_ERROR,
-            `Network error while downloading model: ${error.message}`,
-            true,
-          );
-        } else {
-          throw new EmbeddingException(
-            EmbeddingError.MODEL_DOWNLOAD_FAILED,
-            `Failed to download model: ${error.message}`,
-            true,
-          );
+        console.log(`Attempting to download model (attempt ${attempt}/${maxRetries})`);
+        
+        // Ensure the models directory exists in global storage
+        const modelsDir = vscode.Uri.joinPath(this.extensionContext.globalStorageUri, 'models');
+        try {
+          await vscode.workspace.fs.createDirectory(modelsDir);
+        } catch (error) {
+          // Directory might already exist, ignore error
         }
+
+        // Show progress notification
+        await vscode.window.withProgress(
+          {
+            location: vscode.ProgressLocation.Notification,
+            title: `Downloading Local Embedding Model${attempt > 1 ? ` (Retry ${attempt}/${maxRetries})` : ''}`,
+            cancellable: false,
+          },
+          async (progress) => {
+            let lastReportedPercent = 0;
+
+            // Create the embedding pipeline with progress tracking
+            this.model = await pipeline('feature-extraction', this.config.huggingFaceId, {
+              progress_callback: (progressInfo: any) => {
+                if (progressInfo.status === 'downloading') {
+                  const percent = Math.round((progressInfo.loaded / progressInfo.total) * 100);
+
+                  // Only update progress if there's a meaningful change
+                  if (percent > lastReportedPercent) {
+                    const increment = percent - lastReportedPercent;
+                    progress.report({
+                      increment,
+                      message: `${percent}% - ${progressInfo.file || 'model files'}`,
+                    });
+                    lastReportedPercent = percent;
+                  }
+                } else if (progressInfo.status === 'ready') {
+                  progress.report({
+                    increment: 100 - lastReportedPercent,
+                    message: 'Model ready!',
+                  });
+                } else if (progressInfo.status === 'initiate') {
+                  progress.report({
+                    increment: 0,
+                    message: 'Initializing download...',
+                  });
+                } else if (progressInfo.status === 'error') {
+                  console.error('Download progress error:', progressInfo.error);
+                }
+              },
+            });
+
+            // Final progress update
+            progress.report({
+              increment: 100 - lastReportedPercent,
+              message: 'Download complete!',
+            });
+          },
+        );
+
+        // Update configuration to mark model as downloaded
+        await this.updateModelConfig({
+          enabled: true,
+          modelName: this.config.name,
+          modelPath: this.getModelCachePath(),
+          lastUpdated: new Date().toISOString(),
+          version: '1.0.0',
+        });
+
+        vscode.window.showInformationMessage(
+          `Local embedding model "${this.config.name}" downloaded successfully! You can now use Kappa offline.`,
+        );
+
+        // Success - break out of retry loop
+        return;
+
+      } catch (error) {
+        const isNetworkError = error instanceof Error && 
+          (error.message.includes('network') || 
+           error.message.includes('fetch') || 
+           error.message.includes('timeout') ||
+           error.message.includes('connection') ||
+           error.message.includes('ENOTFOUND') ||
+           error.message.includes('ECONNRESET'));
+
+        if (isNetworkError && attempt < maxRetries) {
+          console.warn(`Network error on attempt ${attempt}, retrying in ${retryDelay}ms:`, error.message);
+          
+          // Show retry notification
+          vscode.window.showWarningMessage(
+            `Download failed (attempt ${attempt}/${maxRetries}). Retrying in ${retryDelay / 1000} seconds...`
+          );
+
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          continue;
+        }
+
+        // Final attempt failed or non-network error
+        console.error(`Model download failed on attempt ${attempt}:`, error);
+
+        if (error instanceof Error) {
+          if (isNetworkError) {
+            throw new EmbeddingException(
+              EmbeddingError.NETWORK_ERROR,
+              `Network error while downloading model after ${maxRetries} attempts: ${error.message}. Please check your internet connection and try again.`,
+              true,
+            );
+          } else if (error.message.includes('space') || error.message.includes('disk')) {
+            throw new EmbeddingException(
+              EmbeddingError.MODEL_DOWNLOAD_FAILED,
+              `Insufficient disk space to download model: ${error.message}. Please free up space and try again.`,
+              true,
+            );
+          } else if (error.message.includes('permission')) {
+            throw new EmbeddingException(
+              EmbeddingError.MODEL_DOWNLOAD_FAILED,
+              `Permission error while downloading model: ${error.message}. Please check file permissions.`,
+              true,
+            );
+          } else {
+            throw new EmbeddingException(
+              EmbeddingError.MODEL_DOWNLOAD_FAILED,
+              `Failed to download model: ${error.message}`,
+              true,
+            );
+          }
+        }
+        throw error;
       }
-      throw error;
     }
   }
 
@@ -944,7 +1060,7 @@ export class LocalEmbeddingService implements EmbeddingProvider {
   private async isModelCached(): Promise<boolean> {
     try {
       // Check configuration first
-      const config = embeddingConfigManager.getLocalEmbeddingConfig();
+      const config = await embeddingConfigManager.getLocalEmbeddingConfig();
       if (!config || !config.enabled) {
         return false;
       }
@@ -963,7 +1079,7 @@ export class LocalEmbeddingService implements EmbeddingProvider {
   }
 
   private async getModelConfig(): Promise<LocalEmbeddingConfig | undefined> {
-    return embeddingConfigManager.getLocalEmbeddingConfig() || undefined;
+    return (await embeddingConfigManager.getLocalEmbeddingConfig()) || undefined;
   }
 
   private estimateTokens(text: string): number {
@@ -1021,46 +1137,97 @@ export class LocalEmbeddingService implements EmbeddingProvider {
   }
 
   /**
-   * Process a batch with retry logic for memory issues
+   * Process a batch with comprehensive retry logic for various failure scenarios
    */
   private async processBatchWithRetry(
     texts: string[],
     chunkIndex: number,
-    maxRetries: number = 2,
+    maxRetries: number = 3,
   ): Promise<number[][]> {
     let lastError: Error | null = null;
+    let currentBatchSize = texts.length;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
+        // Log attempt information
+        console.log(`Processing chunk ${chunkIndex + 1}, attempt ${attempt + 1}/${maxRetries + 1}, batch size: ${currentBatchSize}`);
+
         // Check memory before each attempt
         if (!this.memoryMonitor.isMemoryUsageSafe() && attempt > 0) {
           console.log(`Attempt ${attempt + 1}: Cleaning up memory before retry`);
           this.memoryMonitor.forceGarbageCollection();
-          await new Promise((resolve) => setTimeout(resolve, 200)); // Wait for GC
+          await new Promise((resolve) => setTimeout(resolve, 300)); // Wait for GC
         }
 
-        return await this.processBatch(texts);
+        // For retry attempts, potentially use smaller batch size
+        let textsToProcess = texts;
+        if (attempt > 0 && currentBatchSize > 1) {
+          // Reduce batch size for retries
+          currentBatchSize = Math.max(1, Math.floor(currentBatchSize * 0.7));
+          textsToProcess = texts.slice(0, currentBatchSize);
+          console.log(`Retry attempt with reduced batch size: ${currentBatchSize}`);
+        }
+
+        const result = await this.processBatch(textsToProcess);
+
+        // If we processed a partial batch, process the remaining texts
+        if (textsToProcess.length < texts.length) {
+          console.log(`Processing remaining ${texts.length - textsToProcess.length} texts`);
+          const remainingTexts = texts.slice(textsToProcess.length);
+          const remainingResults = await this.processBatchWithRetry(remainingTexts, chunkIndex, maxRetries - attempt);
+          result.push(...remainingResults);
+        }
+
+        return result;
+
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
+        console.error(`Batch processing attempt ${attempt + 1} failed:`, lastError.message);
 
-        if (error instanceof EmbeddingException && error.type === EmbeddingError.INSUFFICIENT_MEMORY) {
-          console.warn(`Memory error on attempt ${attempt + 1} for chunk ${chunkIndex + 1}:`, error.message);
+        // Categorize error types for different retry strategies
+        const isMemoryError = error instanceof EmbeddingException && error.type === EmbeddingError.INSUFFICIENT_MEMORY;
+        const isModelError = error instanceof EmbeddingException && error.type === EmbeddingError.EMBEDDING_FAILED;
+        const isNetworkError = error instanceof EmbeddingException && error.type === EmbeddingError.NETWORK_ERROR;
+
+        if (isMemoryError) {
+          console.warn(`Memory error on attempt ${attempt + 1} for chunk ${chunkIndex + 1}:`, lastError.message);
 
           if (attempt < maxRetries) {
-            // Try to free up memory and reduce batch size for retry
+            // Aggressive memory cleanup for memory errors
             this.memoryMonitor.forceGarbageCollection();
-            await new Promise((resolve) => setTimeout(resolve, 500)); // Wait longer for memory recovery
+            await new Promise((resolve) => setTimeout(resolve, 800)); // Wait longer for memory recovery
+            
+            // Reduce batch size more aggressively for memory errors
+            currentBatchSize = Math.max(1, Math.floor(currentBatchSize * 0.5));
             continue;
           }
+        } else if (isModelError && attempt < maxRetries) {
+          console.warn(`Model error on attempt ${attempt + 1}, retrying:`, lastError.message);
+          
+          // For model errors, wait a bit and retry
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          continue;
+        } else if (isNetworkError && attempt < maxRetries) {
+          console.warn(`Network error on attempt ${attempt + 1}, retrying:`, lastError.message);
+          
+          // For network errors, wait longer before retry
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+          continue;
         } else {
-          // Non-memory errors should not be retried
+          // Non-retryable errors or final attempt
+          console.error(`Non-retryable error or final attempt for chunk ${chunkIndex + 1}:`, lastError.message);
           throw error;
         }
       }
     }
 
-    // If all retries failed, throw the last error
-    throw lastError || new Error('Unknown error during batch processing with retry');
+    // If all retries failed, throw the last error with context
+    const contextualError = new EmbeddingException(
+      EmbeddingError.EMBEDDING_FAILED,
+      `Failed to process batch after ${maxRetries + 1} attempts. Last error: ${lastError?.message || 'unknown'}`,
+      true
+    );
+    throw contextualError;
   }
 
   /**

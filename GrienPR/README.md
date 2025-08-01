@@ -244,3 +244,77 @@ _This document will be updated as development progresses_
   - **Task 5.2**: Verified success message display when local embedding model is ready
   - All command palette integration requirements from tasks 5.1 and 5.2 are fully satisfied
 - **Status**: ✅ Complete
+
+### July 30, 2025 - Task Completed: Fix embedding configuration to use decomp.yaml
+
+- **Files Modified**: 
+  - `src/configurations/decomp-yaml.ts` - Updated schema to include embedding configuration
+  - `src/configurations/embedding-config.ts` - Migrated from VS Code settings to decomp.yaml
+  - `src/db/db.ts` - Updated to use async configuration methods
+  - `src/db/local-embedding.ts` - Updated to read from decomp.yaml
+  - `src/extension.ts` - Updated command handlers for async configuration
+- **Dependencies Added**: None
+- **Implementation Details**:
+  - **Task 6.1**: Added embeddingProvider and localEmbedding fields to decomp.yaml schema
+  - **Task 6.1**: Updated createDecompYaml to include default embedding configuration
+  - **Task 6.2**: Migrated EmbeddingConfigManager to read from decomp.yaml instead of VS Code settings
+  - **Task 6.2**: Kept VS Code settings only for sensitive information (API keys)
+  - **Task 6.2**: Updated all configuration methods to be async for decomp.yaml access
+  - **Task 6.3**: Updated database class and local embedding service to use async configuration
+  - **Task 6.3**: Updated command handlers to use async configuration access
+  - Ensures per-project consistency as all team members use same embedding configuration
+- **Status**: ✅ Complete
+
+### July 30, 2025 - Task Completed: Add comprehensive error handling and user feedback
+
+- **Files Modified**: 
+  - `src/db/local-embedding.ts` - Enhanced error handling with retry logic and better error categorization
+  - `src/extension.ts` - Improved command handlers with detailed error messages and troubleshooting guidance
+  - `package.json` - Added new status command for embedding provider monitoring
+- **Dependencies Added**: None
+- **Implementation Details**:
+  - **Task 7.1**: Added comprehensive retry logic for model download with network error handling (3 attempts with exponential backoff)
+  - **Task 7.1**: Enhanced initialization process with retry logic for memory and model errors (2 attempts with cleanup)
+  - **Task 7.1**: Improved batch processing with adaptive retry strategies for different error types (memory, model, network)
+  - **Task 7.1**: Added specific error categorization for disk space, permissions, memory, and network issues
+  - **Task 7.2**: Enhanced command handlers with detailed progress indicators using VS Code status bar
+  - **Task 7.2**: Added contextual error messages with specific troubleshooting actions (retry, check network, check memory, etc.)
+  - **Task 7.2**: Created new "Check Embedding Status" command providing comprehensive provider status and recommendations
+  - **Task 7.2**: Added user-friendly action buttons for common troubleshooting steps (restart VS Code, check logs, open network test)
+  - All error scenarios now provide clear guidance and actionable next steps for users
+- **Status**: ✅ Complete
+
+### July 30, 2025 - Task Completed: Create comprehensive unit tests for local embedding functionality
+
+- **Files Modified**: 
+  - `src/test/local-embedding.spec.ts` - Comprehensive unit tests for LocalEmbeddingService
+  - `src/test/database-embedding-integration.spec.ts` - Integration tests for database embedding functionality
+- **Dependencies Added**: None
+- **Implementation Details**:
+  - **Task 8.1**: Created comprehensive unit tests for LocalEmbeddingService covering initialization, embedding generation, input validation, memory monitoring, batch processing, error handling, and Voyage AI compatibility
+  - **Task 8.1**: Added tests for various input sizes and edge cases including empty arrays, invalid inputs, and error scenarios
+  - **Task 8.1**: Implemented tests for memory monitoring functionality including memory statistics, optimal batch size calculation, and memory safety checks
+  - **Task 8.1**: Added tests for adaptive chunking and batch processing with different text sizes
+  - **Task 8.2**: Created integration tests for database embedding functionality including configuration loading, provider fallback, configuration updates, schema validation, and compatibility with existing database operations
+  - **Task 8.2**: Added tests for decomp.yaml integration, missing file handling, embedding provider status, and configuration summary functionality
+  - **Task 8.2**: Verified that local embeddings integrate correctly with existing database operations and maintain backward compatibility
+  - All tests use the existing WebDriver.IO testing framework and follow established patterns
+- **Status**: ✅ Complete
+
+### July 30, 2025 - Task Completed: Add comprehensive documentation and user guidance
+
+- **Files Modified**: 
+  - `README.md` - Added embedding provider documentation and troubleshooting guide
+  - `package.json` - Enhanced command descriptions and configuration tooltips
+- **Dependencies Added**: None
+- **Implementation Details**:
+  - **Task 9.1**: Added comprehensive embedding provider section to README explaining Voyage AI vs Local Embedding options
+  - **Task 9.1**: Documented setup instructions for both embedding providers with clear command references
+  - **Task 9.1**: Added detailed troubleshooting section covering common issues like download failures, memory problems, permission errors, and configuration issues
+  - **Task 9.1**: Included specific guidance for resolving network issues, disk space problems, and model initialization failures
+  - **Task 9.2**: Enhanced command palette entries with descriptive categories and helpful titles
+  - **Task 9.2**: Added emoji icons and detailed descriptions to VS Code configuration settings
+  - **Task 9.2**: Improved configuration tooltips with pricing information, quality comparisons, and usage guidance
+  - **Task 9.2**: Added clear guidance on when to use local vs cloud embeddings with pros/cons for each option
+  - Documentation now provides complete guidance for users to successfully set up and troubleshoot local embedding functionality
+- **Status**: ✅ Complete

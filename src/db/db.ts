@@ -65,7 +65,7 @@ class Database {
    */
   async isLocalEmbeddingEnabled(): Promise<boolean> {
     // Check configuration first
-    if (!embeddingConfigManager.isLocalEmbeddingEnabled()) {
+    if (!(await embeddingConfigManager.isLocalEmbeddingEnabled())) {
       return false;
     }
 
@@ -80,8 +80,8 @@ class Database {
   /**
    * Get the user's preferred embedding provider
    */
-  private getEmbeddingProvider(): 'voyage' | 'local' {
-    return embeddingConfigManager.getEmbeddingProvider();
+  private async getEmbeddingProvider(): Promise<'voyage' | 'local'> {
+    return await embeddingConfigManager.getEmbeddingProvider();
   }
 
   /**
@@ -254,7 +254,7 @@ class Database {
   }
 
   async #getEmbedding(asmCodes: string[]): Promise<number[][]> {
-    const preferredProvider = this.getEmbeddingProvider();
+    const preferredProvider = await this.getEmbeddingProvider();
 
     // Try local embedding first if preferred or if it's the only available option
     if (preferredProvider === 'local' || (preferredProvider === 'voyage' && !getVoyageApiKey())) {
@@ -268,7 +268,7 @@ class Database {
           // If user explicitly chose local, don't fallback - throw the error
           if (preferredProvider === 'local') {
             throw new Error(
-              `Local embedding failed: ${error instanceof Error ? error.message : 'Unknown error'}. Please check the model status or switch to Voyage AI in settings.`,
+              `Local embedding failed: ${error instanceof Error ? error.message : 'Unknown error'}. Please check the model status or switch to Voyage AI in decomp.yaml.`,
             );
           }
 
@@ -278,7 +278,7 @@ class Database {
       } else if (preferredProvider === 'local') {
         // User explicitly chose local but it's not available
         throw new Error(
-          'Local embedding model not available. The model needs to be downloaded first. Use the "Kappa: Enable Local Embedding Model" command or switch to Voyage AI in settings.',
+          'Local embedding model not available. The model needs to be downloaded first. Use the "Kappa: Enable Local Embedding Model" command or switch to Voyage AI in decomp.yaml.',
         );
       }
     }
