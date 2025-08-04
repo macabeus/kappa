@@ -26,6 +26,11 @@ const decompYamlSchema = z.object({
       .optional(),
     kappa: z.object({
       buildFolder: z.string(),
+      embeddingProvider: z.enum(['voyage', 'local']).optional().default('voyage'),
+      localEmbedding: z.object({
+        enabled: z.boolean().default(false),
+        modelName: z.string().default('all-MiniLM-L6-v2'),
+      }).optional(),
     }),
   }),
 });
@@ -192,6 +197,11 @@ export async function createDecompYaml(currentConfig: DecompYaml | null = null):
     tools: {
       kappa: {
         buildFolder: getRelativePath(buildFolder),
+        embeddingProvider: 'voyage',
+        localEmbedding: {
+          enabled: false,
+          modelName: 'all-MiniLM-L6-v2',
+        },
       },
       ...(decompmeTool ? { decompme: decompmeTool } : {}),
     },

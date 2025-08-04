@@ -2,8 +2,8 @@
   "compilerOptions": {
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "target": "ES2024",
-    "lib": ["ES2024"],
+    "target": "ES2023",
+    "lib": ["ES2023"],
     "sourceMap": true,
     "rootDir": "src",
     "skipLibCheck": true,

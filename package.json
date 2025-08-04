@@ -80,7 +80,23 @@
       },
       {
         "command": "kappa.changeVoyageApiKey",
-        "title": "Kappa: Set Voyage AI API Key"
+        "title": "Kappa: Set Voyage AI API Key",
+        "category": "Kappa Embedding"
+      },
+      {
+        "command": "kappa.changeEmbeddingProvider",
+        "title": "Kappa: Choose Embedding Provider",
+        "category": "Kappa Embedding"
+      },
+      {
+        "command": "kappa.enableLocalEmbeddingModel",
+        "title": "Kappa: Enable Local Embedding Model (Free, Offline)",
+        "category": "Kappa Embedding"
+      },
+      {
+        "command": "kappa.checkEmbeddingStatus",
+        "title": "Kappa: Check Embedding Status",
+        "category": "Kappa Embedding"
       }
     ],
     "configuration": {
@@ -193,7 +209,69 @@
         "kappa.voyageApiKey": {
           "type": "string",
           "default": "",
-          "description": "API key for Voyage AI service used for semantic embeddings and search",
+          "description": "🔑 API key for Voyage AI embedding service. Get yours at https://www.voyageai.com/ (~$0.10 per 1M tokens)",
+          "scope": "application"
+        },
+        "kappa.embeddingProvider": {
+          "type": "string",
+          "default": "voyage",
+          "enum": [
+            "voyage",
+            "local"
+          ],
+          "enumDescriptions": [
+            "🌐 Voyage AI - High-quality embeddings (requires API key and internet connection)",
+            "💻 Local Embedding - Free offline embeddings (one-time ~100MB download, sufficient quality)"
+          ],
+          "description": "🎯 Choose your embedding provider for semantic search and function similarity analysis",
+          "scope": "application"
+        },
+        "kappa.localEmbeddingConfig": {
+          "type": "object",
+          "default": {
+            "enabled": false,
+            "modelName": "all-MiniLM-L6-v2",
+            "modelPath": "",
+            "lastUpdated": "",
+            "version": "1.0.0",
+            "downloadProgress": 0,
+            "isInitialized": false
+          },
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Whether local embedding model is enabled"
+            },
+            "modelName": {
+              "type": "string",
+              "description": "Name of the local embedding model"
+            },
+            "modelPath": {
+              "type": "string",
+              "description": "Path to the cached local embedding model files"
+            },
+            "lastUpdated": {
+              "type": "string",
+              "description": "ISO timestamp of when the model was last updated"
+            },
+            "version": {
+              "type": "string",
+              "description": "Version of the local embedding model configuration"
+            },
+            "downloadProgress": {
+              "type": "number",
+              "description": "Download progress percentage (0-100)"
+            },
+            "isInitialized": {
+              "type": "boolean",
+              "description": "Whether the local embedding model is initialized and ready"
+            },
+            "lastError": {
+              "type": "string",
+              "description": "Last error message if model initialization failed"
+            }
+          },
+          "description": "💻 Configuration and status for local embedding model (managed automatically, do not edit manually)",
           "scope": "application"
         }
       }
@@ -289,6 +367,7 @@
     "@ast-grep/lang-c": "^0.0.2",
     "@ast-grep/napi": "^0.38.6",
     "@clangd/install": "0.1.20",
+    "@xenova/transformers": "^2.17.2",
     "dedent": "^1.6.0",
     "diff": "^8.0.2",
     "objdiff-wasm": "3.0.0-beta.13",
