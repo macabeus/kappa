@@ -12,6 +12,7 @@ example-kappa-plugins/**
 test-workspace/**
 
 .yarnrc
+.yarn/install-state.gz
 .gitignore
 .prettierignore
 esbuild.js

@@ -9,3 +9,5 @@ node_modules
 .wdio-vscode-service
 test-workspace/*
 !test-workspace/.keep
+
+.yarn/install-state.gz
