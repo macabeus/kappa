@@ -5,96 +5,96 @@ __metadata:
   version: 8
   cacheKey: 10c0
 
-"@ast-grep/lang-c@npm:^0.0.2":
-  version: 0.0.2
-  resolution: "@ast-grep/lang-c@npm:0.0.2"
+"@ast-grep/lang-c@npm:^0.0.3":
+  version: 0.0.3
+  resolution: "@ast-grep/lang-c@npm:0.0.3"
   dependencies:
-    "@ast-grep/setup-lang": "npm:0.0.3"
+    "@ast-grep/setup-lang": "npm:0.0.4"
   peerDependencies:
-    tree-sitter-cli: 0.25.6
+    tree-sitter-cli: 0.25.8
   peerDependenciesMeta:
     tree-sitter-cli:
       optional: true
-  checksum: 10c0/7c5a506e6c4d94f2ffb8a5d8726a0d28eb3930c34048d70ac569db825226795ff809a5e9f8ac1336b634a63ea38a4515bbaece43525f0a4d10ca154b1eb78d02
+  checksum: 10c0/07cc80ffb182a84619a8d1efb31b06f67f9543fec2632ca51868642a0c34f9278bb86aecdcdf08310108e2847e1863ba0b589d7124f68b30712961b2b5583e98
   languageName: node
   linkType: hard
 
-"@ast-grep/napi-darwin-arm64@npm:0.39.2":
-  version: 0.39.2
-  resolution: "@ast-grep/napi-darwin-arm64@npm:0.39.2"
+"@ast-grep/napi-darwin-arm64@npm:0.39.3":
+  version: 0.39.3
+  resolution: "@ast-grep/napi-darwin-arm64@npm:0.39.3"
   conditions: os=darwin & cpu=arm64
   languageName: node
   linkType: hard
 
-"@ast-grep/napi-darwin-x64@npm:0.39.2":
-  version: 0.39.2
-  resolution: "@ast-grep/napi-darwin-x64@npm:0.39.2"
+"@ast-grep/napi-darwin-x64@npm:0.39.3":
+  version: 0.39.3
+  resolution: "@ast-grep/napi-darwin-x64@npm:0.39.3"
   conditions: os=darwin & cpu=x64
   languageName: node
   linkType: hard
 
-"@ast-grep/napi-linux-arm64-gnu@npm:0.39.2":
-  version: 0.39.2
-  resolution: "@ast-grep/napi-linux-arm64-gnu@npm:0.39.2"
+"@ast-grep/napi-linux-arm64-gnu@npm:0.39.3":
+  version: 0.39.3
+  resolution: "@ast-grep/napi-linux-arm64-gnu@npm:0.39.3"
   conditions: os=linux & cpu=arm64 & libc=glibc
   languageName: node
   linkType: hard
 
-"@ast-grep/napi-linux-arm64-musl@npm:0.39.2":
-  version: 0.39.2
-  resolution: "@ast-grep/napi-linux-arm64-musl@npm:0.39.2"
+"@ast-grep/napi-linux-arm64-musl@npm:0.39.3":
+  version: 0.39.3
+  resolution: "@ast-grep/napi-linux-arm64-musl@npm:0.39.3"
   conditions: os=linux & cpu=arm64 & libc=musl
   languageName: node
   linkType: hard
 
-"@ast-grep/napi-linux-x64-gnu@npm:0.39.2":
-  version: 0.39.2
-  resolution: "@ast-grep/napi-linux-x64-gnu@npm:0.39.2"
+"@ast-grep/napi-linux-x64-gnu@npm:0.39.3":
+  version: 0.39.3
+  resolution: "@ast-grep/napi-linux-x64-gnu@npm:0.39.3"
   conditions: os=linux & cpu=x64 & libc=glibc
   languageName: node
   linkType: hard
 
-"@ast-grep/napi-linux-x64-musl@npm:0.39.2":
-  version: 0.39.2
-  resolution: "@ast-grep/napi-linux-x64-musl@npm:0.39.2"
+"@ast-grep/napi-linux-x64-musl@npm:0.39.3":
+  version: 0.39.3
+  resolution: "@ast-grep/napi-linux-x64-musl@npm:0.39.3"
   conditions: os=linux & cpu=x64 & libc=musl
   languageName: node
   linkType: hard
 
-"@ast-grep/napi-win32-arm64-msvc@npm:0.39.2":
-  version: 0.39.2
-  resolution: "@ast-grep/napi-win32-arm64-msvc@npm:0.39.2"
+"@ast-grep/napi-win32-arm64-msvc@npm:0.39.3":
+  version: 0.39.3
+  resolution: "@ast-grep/napi-win32-arm64-msvc@npm:0.39.3"
   conditions: os=win32 & cpu=arm64
   languageName: node
   linkType: hard
 
-"@ast-grep/napi-win32-ia32-msvc@npm:0.39.2":
-  version: 0.39.2
-  resolution: "@ast-grep/napi-win32-ia32-msvc@npm:0.39.2"
+"@ast-grep/napi-win32-ia32-msvc@npm:0.39.3":
+  version: 0.39.3
+  resolution: "@ast-grep/napi-win32-ia32-msvc@npm:0.39.3"
   conditions: os=win32 & cpu=ia32
   languageName: node
   linkType: hard
 
-"@ast-grep/napi-win32-x64-msvc@npm:0.39.2":
-  version: 0.39.2
-  resolution: "@ast-grep/napi-win32-x64-msvc@npm:0.39.2"
+"@ast-grep/napi-win32-x64-msvc@npm:0.39.3":
+  version: 0.39.3
+  resolution: "@ast-grep/napi-win32-x64-msvc@npm:0.39.3"
   conditions: os=win32 & cpu=x64
   languageName: node
   linkType: hard
 
-"@ast-grep/napi@npm:^0.39.2":
-  version: 0.39.2
-  resolution: "@ast-grep/napi@npm:0.39.2"
+"@ast-grep/napi@npm:^0.39.3":
+  version: 0.39.3
+  resolution: "@ast-grep/napi@npm:0.39.3"
   dependencies:
-    "@ast-grep/napi-darwin-arm64": "npm:0.39.2"
-    "@ast-grep/napi-darwin-x64": "npm:0.39.2"
-    "@ast-grep/napi-linux-arm64-gnu": "npm:0.39.2"
-    "@ast-grep/napi-linux-arm64-musl": "npm:0.39.2"
-    "@ast-grep/napi-linux-x64-gnu": "npm:0.39.2"
-    "@ast-grep/napi-linux-x64-musl": "npm:0.39.2"
-    "@ast-grep/napi-win32-arm64-msvc": "npm:0.39.2"
-    "@ast-grep/napi-win32-ia32-msvc": "npm:0.39.2"
-    "@ast-grep/napi-win32-x64-msvc": "npm:0.39.2"
+    "@ast-grep/napi-darwin-arm64": "npm:0.39.3"
+    "@ast-grep/napi-darwin-x64": "npm:0.39.3"
+    "@ast-grep/napi-linux-arm64-gnu": "npm:0.39.3"
+    "@ast-grep/napi-linux-arm64-musl": "npm:0.39.3"
+    "@ast-grep/napi-linux-x64-gnu": "npm:0.39.3"
+    "@ast-grep/napi-linux-x64-musl": "npm:0.39.3"
+    "@ast-grep/napi-win32-arm64-msvc": "npm:0.39.3"
+    "@ast-grep/napi-win32-ia32-msvc": "npm:0.39.3"
+    "@ast-grep/napi-win32-x64-msvc": "npm:0.39.3"
   dependenciesMeta:
     "@ast-grep/napi-darwin-arm64":
       optional: true
@@ -114,14 +114,14 @@ __metadata:
       optional: true
     "@ast-grep/napi-win32-x64-msvc":
       optional: true
-  checksum: 10c0/7bbf8241ea3ef5d62e4e1ae89ae69c87c7c0c70d0e7fe519bd338e13e68881dcfc85479118003d516dc7d4e593ef972572ac34ac146a9bf4050b97729a360ff3
+  checksum: 10c0/f215afb7b99ce177490016ff87f5fd5d73a07b510f5b51599668687d09a28cf6e6f9d1d38febb572ba8a39924a186761c651fd6ca04d78f7e23f5f2d374d5e71
   languageName: node
   linkType: hard
 
-"@ast-grep/setup-lang@npm:0.0.3":
-  version: 0.0.3
-  resolution: "@ast-grep/setup-lang@npm:0.0.3"
-  checksum: 10c0/1d2f0821acd09693796553833dffe026931a2fd2405384916096387cd8a941fe8cd7bbe7c6cd207b11f60a04168c2783872e55c01937d96b830f8fff3cc6625d
+"@ast-grep/setup-lang@npm:0.0.4":
+  version: 0.0.4
+  resolution: "@ast-grep/setup-lang@npm:0.0.4"
+  checksum: 10c0/e5fe9c6dab3bb69b43a4d90c3434422983a24fbc9fa9b5a69d490386a3b272f9198e460c7a795e54beb032112642596e93bf1dc1cfa1467ee3353d9f5aa5ffbb
   languageName: node
   linkType: hard
 
@@ -6485,8 +6485,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "kappa@workspace:."
   dependencies:
-    "@ast-grep/lang-c": "npm:^0.0.2"
-    "@ast-grep/napi": "npm:^0.39.2"
+    "@ast-grep/lang-c": "npm:^0.0.3"
+    "@ast-grep/napi": "npm:^0.39.3"
     "@clangd/install": "npm:0.1.20"
     "@types/mocha": "npm:^10.0.10"
     "@types/node": "npm:20.x"
