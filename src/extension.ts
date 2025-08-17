@@ -16,7 +16,14 @@ import { showChart } from './db/show-chart';
 import { GetDiffBetweenObjectFiles } from './language-model-tools/objdiff';
 import { AssemblyCodeLensProvider } from './providers/assembly-code-lens';
 import { objdiff } from './objdiff/objdiff';
+import { decompileWithM2c } from './m2c/m2c';
 import { createDecompYaml, ensureDecompYamlExists, loadDecompYaml } from './configurations/decomp-yaml';
+import {
+  getM2cPath,
+  getPythonExecutablePath,
+  showInputBoxForSettingM2cPath,
+  showInputBoxForSettingPythonExecutablePath,
+} from './configurations/workspace-configs';
 import { createDecompMeScratch } from './decompme/create-scratch';
 
 // Constants for configuration
@@ -219,6 +226,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
     }
   });
 
+  vscode.commands.registerCommand('kappa.changeM2cPath', async () => {
+    await showInputBoxForSettingM2cPath();
+  });
+
+  vscode.commands.registerCommand('kappa.changePythonExecutable', async () => {
+    await showInputBoxForSettingPythonExecutablePath();
+  });
+
   vscode.commands.registerCommand('kappa.runDecompYamlCreation', async () => {
     const decompYaml = await loadDecompYaml();
     await createDecompYaml(decompYaml);
@@ -355,6 +370,61 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
     }
 
     await createDecompMeScratch(functionId);
+  });
+
+  vscode.commands.registerCommand('kappa.decompileWithM2c', async (functionId?: string) => {
+    await ensureDecompYamlExists();
+
+    if (!functionId) {
+      // TODO: Same as from `kappa.startDecompilerAgent`.
+      vscode.window.showErrorMessage('No function id provided when calling decompileWithM2c command.');
+      return;
+    }
+
+    const hasM2cPath = Boolean(getM2cPath());
+    const hasPythonExecutablePath = Boolean(getPythonExecutablePath());
+    if (!hasM2cPath || !hasPythonExecutablePath) {
+      const answer = await vscode.window.showErrorMessage(
+        'm2c path or Python executable path is not configured. Please run "Kappa: Create or update decomp.yaml" and configure m2c.',
+        'Run decomp.yaml creation',
+        'Ignore',
+      );
+
+      if (answer === 'Run decomp.yaml creation') {
+        await vscode.commands.executeCommand('kappa.runDecompYamlCreation');
+      }
+
+      return;
+    }
+
+    const result = await decompileWithM2c(functionId);
+    if (!result) {
+      return;
+    }
+
+    const cFiles = await vscode.workspace.findFiles('**/*.{c,cpp}', 'tools/**');
+    const targetFile = await showFilePicker({
+      title: 'Enter the file to output the decompiled C code. Esc to write a new file.',
+      files: cFiles,
+    });
+
+    if (!targetFile) {
+      const doc = await vscode.workspace.openTextDocument({
+        content: result,
+        language: 'c',
+      });
+
+      await vscode.window.showTextDocument(doc);
+      return;
+    }
+
+    const targetUri = vscode.Uri.file(targetFile);
+    const targetDocument = await vscode.workspace.openTextDocument(targetUri);
+    const edit = new vscode.WorkspaceEdit();
+    const lastLine = targetDocument.lineCount;
+    edit.insert(targetUri, new vscode.Position(lastLine, 0), `\n${result}`);
+    await vscode.workspace.applyEdit(edit);
+    await vscode.window.showTextDocument(targetDocument);
   });
 
   // Register Language Model Tools

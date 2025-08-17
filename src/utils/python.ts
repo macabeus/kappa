@@ -1,0 +1,105 @@
+import { spawn } from 'child_process';
+import { checkFileExists } from './vscode-utils';
+import * as path from 'path';
+import { glob } from 'glob';
+import { getPythonExecutablePath } from '../configurations/workspace-configs';
+
+/**
+ * Get different Python executable paths based on the platform
+ */
+export async function getPythonPaths(): Promise<string[]> {
+  const paths: string[] = [];
+
+  if (process.platform === 'win32') {
+    const userProfile = process.env.USERPROFILE;
+    if (userProfile) {
+      const windowsAppsPath = path.join(userProfile, 'AppData', 'Local', 'Microsoft', 'WindowsApps');
+      const localPythonPath = path.join(userProfile, 'AppData', 'Local', 'Programs', 'Python');
+
+      const [windowsAppPythonPaths, localPythonPaths] = await Promise.all([
+        glob('python*.exe', { cwd: windowsAppsPath, absolute: true, ignore: '**/pythonw*.exe' }),
+        glob('*/python.exe', { cwd: localPythonPath, absolute: true }),
+      ]);
+
+      paths.push(...windowsAppPythonPaths, ...localPythonPaths);
+    }
+
+    const programFiles = process.env.ProgramFiles;
+    if (programFiles) {
+      paths.push(...(await glob('*/python.exe', { cwd: programFiles, absolute: true })));
+    }
+  } else {
+    // Unix-like systems (macOS, Linux)
+    const possiblePythonPaths = [
+      '/usr/local/bin/poetry',
+      '/opt/homebrew/bin/poetry',
+      `${process.env.HOME}/.local/bin/poetry`,
+      `${process.env.HOME}/.poetry/bin/poetry`,
+      '/usr/bin/python3',
+      '/usr/local/bin/python3',
+      '/opt/homebrew/bin/python3',
+      '/usr/bin/python',
+      '/usr/local/bin/python',
+      '/opt/homebrew/bin/python',
+    ];
+
+    const promises = possiblePythonPaths.map(async (pythonPath) => {
+      const exists = await checkFileExists(pythonPath);
+      if (exists) {
+        if (pythonPath.includes('poetry')) {
+          paths.unshift(pythonPath); // prioritize poetry paths
+        } else {
+          paths.push(pythonPath);
+        }
+      }
+    });
+
+    await Promise.all(promises);
+  }
+
+  return paths;
+}
+
+export async function runPythonScript(cwd: string, pythonFilename: string, args: ReadonlyArray<string> = []) {
+  const pythonExecutable = getPythonExecutablePath();
+  if (!pythonExecutable) {
+    throw new Error(
+      'Python executable not found. Please run the command "Kappa: Set Python Executable Path" to set it up.',
+    );
+  }
+
+  const runCommand = pythonExecutable.includes('poetry') ? ['run', 'python'] : [];
+
+  return new Promise<{ stdout: string; stderr: string; success: boolean }>((resolve) => {
+    const process = spawn(pythonExecutable, [...runCommand, pythonFilename, ...args], {
+      cwd,
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    process.stdout.on('data', (data: Buffer) => {
+      stdout += data.toString();
+    });
+
+    process.stderr.on('data', (data: Buffer) => {
+      stderr += data.toString();
+    });
+
+    process.on('close', (code: number) => {
+      resolve({
+        stdout,
+        stderr,
+        success: code === 0,
+      });
+    });
+
+    process.on('error', (error: Error) => {
+      resolve({
+        stdout,
+        stderr: error.message,
+        success: false,
+      });
+    });
+  });
+}

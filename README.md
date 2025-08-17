@@ -9,7 +9,7 @@ VS Code extension designed to help you when decompiling a codebase.
 
 - **✨ AI Prompt Builder:** Craft high-quality prompts to guide AI in decompiling a function.
 - **🤖 Agent Mode:** Automatically decompile a given function, until it reache 100% match.
-- **🐸 Integration with [decomp.me](https://decomp.me/):** Create a new scratch in one click.
+- **🐍 Integration with popular decompilation toolings:** Create a scratch on [decomp.me](https://decomp.me/) in one click, call [objdiff](https://github.com/encounter/objdiff) and [m2c](https://github.com/matt-kempster/m2c) from VS Code easily.
 - **🔌 Automated Code Fixes:** Use plugins to automatically update the code’s AST, eliminating repetitive tasks and correcting common errors.
 
 > [📚 Learn how this project was developed on Substack](https://gambiconf.substack.com/p/development-journey-on-game-decompilation)
@@ -24,7 +24,7 @@ Make sure to follow the Kappa Setup walkthrough to get the extension working on 
 
 <img alt="Build prompt" src="./media/readme/build-prompt.gif" />
 
-Click on "Build prompt to decompile it" to create a context-aware prompt for decompiling an assembly function. It automatically analyzes your codebase to provide the AI with accurate context for the task.
+Click on "Build prompt" to create a context-aware prompt for decompiling an assembly function. It automatically analyzes your codebase to provide the AI with accurate context for the task.
 
 The prompt includes:
 
@@ -36,7 +36,7 @@ The prompt includes:
 
 https://github.com/user-attachments/assets/f8f5c135-fd9b-494f-92fd-a69044318567
 
-Click on "Start agent to decompile it" to have VS Code Copilot automatically decompile the assembly function.
+Click on "Start agent" to have VS Code Copilot automatically decompile the assembly function.
 
 > **Note:** Make sure to have the "Agent" mode selected on GitHub Copilot before clicking on the code lens.
 
@@ -68,7 +68,11 @@ The target object file is at `sa3/expected/bu_bu.o`
 
 <img alt="Create Scratch" src="./media/readme/create-scratch.gif" />
 
-Create a new scratch on decomp.me instantly by clicking the code lens that appears above assembly functions. It automatically includes the type definitions from your code base which are used by the function and aren't on the context.
+Create a new scratch on [decomp.me](https://decomp.me/) instantly by clicking the code lens that appears above assembly functions. It automatically includes the type definitions from your code base which are used by the function and aren't on the context.
+
+## 🐍 Integration with m2c
+
+Decompile assembly functions using [m2c](https://github.com/matt-kempster/m2c) by clicking "Decompile with m2c" code lens above assembly functions.
 
 ## 🔌 Kappa Plugins
 

@@ -81,11 +81,19 @@
       {
         "command": "kappa.changeVoyageApiKey",
         "title": "Kappa: Set Voyage AI API Key"
+      },
+      {
+        "command": "kappa.changeM2cPath",
+        "title": "Kappa: Set M2C Path"
+      },
+      {
+        "command": "kappa.changePythonExecutable",
+        "title": "Kappa: Set Python Executable Path"
       }
     ],
     "configuration": {
       "type": "object",
-      "title": "clangd",
+      "title": "Kappa",
       "properties": {
         "clangd.path": {
           "type": "string",
@@ -195,6 +203,18 @@
           "default": "",
           "description": "API key for Voyage AI service used for semantic embeddings and search",
           "scope": "application"
+        },
+        "kappa.m2cPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path for m2c on your computer",
+          "scope": "machine"
+        },
+        "kappa.pythonExecutablePath": {
+          "type": "string",
+          "default": "",
+          "description": "Python executable path to when calling m2c",
+          "scope": "machine"
         }
       }
     },
@@ -294,6 +314,7 @@
     "@clangd/install": "0.1.20",
     "dedent": "^1.6.0",
     "diff": "^8.0.2",
+    "glob": "^11.0.3",
     "objdiff-wasm": "3.0.0-beta.13",
     "rxdb": "^16.15.0",
     "rxjs": "^7.8.2",
