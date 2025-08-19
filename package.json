@@ -2,7 +2,7 @@
   "name": "kappa",
   "displayName": "Kappa",
   "description": "General helper for decompilation",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "publisher": "macabeus",
   "icon": "media/branding/logo.png",
   "type": "module",
