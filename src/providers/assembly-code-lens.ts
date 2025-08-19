@@ -68,24 +68,30 @@ export class AssemblyCodeLensProvider implements vscode.CodeLensProvider {
           const range = new vscode.Range(i, 0, i, line.length);
 
           const codeLensPromptBuilder = new vscode.CodeLens(range, {
-            title: 'Build prompt to decompile it',
+            title: 'Build prompt',
             command: 'kappa.runPromptBuilder',
             arguments: [functionId],
           });
 
           const codeLensStartAgent = new vscode.CodeLens(range, {
-            title: 'Start agent to decompile it',
+            title: 'Start agent',
             command: 'kappa.startDecompilerAgent',
             arguments: [functionId],
           });
 
           const codeLensCreateDecompMeScratch = new vscode.CodeLens(range, {
-            title: 'Create scratch on decomp.me',
+            title: 'Create scratch',
             command: 'kappa.createDecompMeScratch',
             arguments: [functionId],
           });
 
-          codeLenses.push(codeLensPromptBuilder, codeLensStartAgent, codeLensCreateDecompMeScratch);
+          const codeLensM2c = new vscode.CodeLens(range, {
+            title: 'Decompile with m2c',
+            command: 'kappa.decompileWithM2c',
+            arguments: [functionId],
+          });
+
+          codeLenses.push(codeLensPromptBuilder, codeLensStartAgent, codeLensCreateDecompMeScratch, codeLensM2c);
 
           functionMap.delete(functionName); // Remove to avoid duplicates
         }
