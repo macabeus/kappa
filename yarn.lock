@@ -6536,7 +6536,7 @@ __metadata:
     eslint: "npm:^9.25.1"
     glob: "npm:^11.0.3"
     npm-run-all: "npm:^4.1.5"
-    objdiff-wasm: "npm:3.0.0-beta.13"
+    objdiff-wasm: "npm:^3.0.0"
     prettier: "npm:^3.5.3"
     rxdb: "npm:^16.15.0"
     rxjs: "npm:^7.8.2"
@@ -7421,10 +7421,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"objdiff-wasm@npm:3.0.0-beta.13":
-  version: 3.0.0-beta.13
-  resolution: "objdiff-wasm@npm:3.0.0-beta.13"
-  checksum: 10c0/ba1db539fbd4554e3299242dc42a027471444f1ce453342db00b28a286550861940e8aa77a2493abe3776be5dab0bca18af4b58029f04d787a64eea45a28a9d1
+"objdiff-wasm@npm:^3.0.0":
+  version: 3.0.0
+  resolution: "objdiff-wasm@npm:3.0.0"
+  checksum: 10c0/67e7879adb364e6f2385bfcc3c2644a275df47006b2ee82694084adfcbd819bd73cfc7b960b54eb89a8cdb7976a2f9b2f8219a6868a088ed1ea283f0c8a5be24
   languageName: node
   linkType: hard
 

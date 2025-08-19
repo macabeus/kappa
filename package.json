@@ -315,7 +315,7 @@
     "dedent": "^1.6.0",
     "diff": "^8.0.2",
     "glob": "^11.0.3",
-    "objdiff-wasm": "3.0.0-beta.13",
+    "objdiff-wasm": "^3.0.0",
     "rxdb": "^16.15.0",
     "rxjs": "^7.8.2",
     "umap-js": "^1.4.0",

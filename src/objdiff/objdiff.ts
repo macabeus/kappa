@@ -277,11 +277,75 @@ class Objdiff {
     // Show detailed differences
     content += `## Detailed Differences\n\n`;
 
+    const { matchingCount, differenceCount, differences } = await this.#getDifferencesFromObjectFiles(
+      diffResult.left,
+      diffResult.right,
+      functionName,
+      diffConfig,
+    );
+
+    // Add summary
+    content += `### Comparison Summary\n\n`;
+    content += `- Matching instructions: ${matchingCount}\n`;
+    content += `- Different instructions: ${differenceCount}\n\n`;
+
+    content += `### Instruction Differences\n\n`;
+    if (differences.length > 0) {
+      content += differences.join('\n');
+    } else {
+      content += `No differences found! The assembly code for this function is identical.\n`;
+
+      // If there are no differences, we should check for mismatched functions on this module.
+      // This is useful to guide AI on follow up actions.
+      const [symbolsCurrentFile, symbolsTargetFile] = await Promise.all([
+        this.getSymbolsName(currentObject),
+        this.getSymbolsName(targetObject),
+      ]);
+
+      const mismatchedFunctionsOnThisModule = [];
+      for (const symbol of symbolsCurrentFile) {
+        if (!symbolsTargetFile.includes(symbol) && symbol !== functionName) {
+          continue;
+        }
+
+        const { differenceCount } = await this.#getDifferencesFromObjectFiles(
+          diffResult.left,
+          diffResult.right,
+          symbol,
+          diffConfig,
+        );
+
+        if (differenceCount) {
+          mismatchedFunctionsOnThisModule.push(symbol);
+        }
+      }
+
+      if (mismatchedFunctionsOnThisModule.length > 0) {
+        content += `\n#### Mismatched Functions on this Module:\n\n`;
+        content += `The following functions from this module have mismatched assembly code:\n\n`;
+        for (const func of mismatchedFunctionsOnThisModule) {
+          content += `- \`${func}\`\n`;
+        }
+        content += `\nYou can compare them individually using the same command.\n`;
+      }
+    }
+
+    // Return
+    return content;
+  }
+
+  async #getDifferencesFromObjectFiles(
+    diffResultLeft: ObjectDiff,
+    diffResultRight: ObjectDiff,
+    functionName: string,
+    diffConfig: DiffConfig,
+  ): Promise<{ differenceCount: number; matchingCount: number; differences: string[] }> {
     let differenceCount = 0;
     let matchingCount = 0;
     const differences: string[] = [];
+
     for await (const [leftInstructionRow, rightInstructionRow] of this.#iterateSymbolRows(
-      [diffResult.left, diffResult.right],
+      [diffResultLeft, diffResultRight],
       functionName,
       diffConfig,
     )) {
@@ -341,52 +405,7 @@ class Objdiff {
       }
     }
 
-    // Add summary
-    content += `### Comparison Summary:\n\n`;
-    content += `- Matching instructions: ${matchingCount}\n`;
-    content += `- Different instructions: ${differenceCount}\n\n`;
-
-    content += `### Instruction Differences:\n\n`;
-    if (differences.length > 0) {
-      content += differences.join('\n');
-    } else {
-      content += `No differences found! The assembly code for this function is identical.\n\n`;
-
-      // If there are no differences, we should check for mismatched functions on this module.
-      // This is useful to guide AI on follow up actions.
-      const [symbolsCurrentFile, symbolsTargetFile] = await Promise.all([
-        this.getSymbolsName(currentObject),
-        this.getSymbolsName(targetObject),
-      ]);
-
-      const mismatchedFunctionsOnThisModule = [];
-      for (const symbol of symbolsCurrentFile) {
-        if (!symbolsTargetFile.includes(symbol) && symbol !== functionName) {
-          continue;
-        }
-
-        const [leftAssembly, rightAssembly] = await Promise.all([
-          this.#getAssemblyFromSymbol(diffResult.left, symbol, diffConfig),
-          this.#getAssemblyFromSymbol(diffResult.right, symbol, diffConfig),
-        ]);
-
-        if (leftAssembly !== rightAssembly) {
-          mismatchedFunctionsOnThisModule.push(symbol);
-        }
-      }
-
-      if (mismatchedFunctionsOnThisModule.length > 0) {
-        content += `#### Mismatched Functions on this Module:\n\n`;
-        content += `The following functions from this module have mismatched assembly code:\n\n`;
-        for (const func of mismatchedFunctionsOnThisModule) {
-          content += `- \`${func}\`\n`;
-        }
-        content += `\nYou can compare them individually using the same command.\n`;
-      }
-    }
-
-    // Return
-    return content;
+    return { differenceCount, matchingCount, differences };
   }
 
   async *#iterateSymbolRows(objDiffs: ObjectDiff[], symbolName: string, diffConfig: DiffConfig) {
