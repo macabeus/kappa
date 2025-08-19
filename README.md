@@ -58,10 +58,26 @@ You can plot a scatter chart to visualize clusters of functions with similar ass
 
 You can call [`objdiff`](https://github.com/encounter/objdiff) from the Copilot Chat to explain the diffs from a given function.
 
-```
+#### Example
+
+- Calling `#objdiff` on the ask mode to explain the differences.
+
+```markdown
 #objdiff explain the differences on this function.
 The current object file is at `sa3/build/bu_bu.o`.
 The target object file is at `sa3/expected/bu_bu.o`
+```
+
+- Calling `#objdiff` on the agent mode to fix the differences for a function.
+
+```markdown
+Call #objdiff comparing the function `sub_805ECC4` with the expected assembly function, and fixes the gaps.
+
+The current object file path is at `sa3/build/bu_bu.o` and the target object file path is at `sa3/expected/bu_bu.o`.
+
+Make your changes and compile calling `make` to check if it's working.
+
+Stop only when there are no more differences.
 ```
 
 ## 🐸 Integration with decomp.me
