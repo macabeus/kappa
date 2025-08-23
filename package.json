@@ -215,6 +215,11 @@
           "default": "",
           "description": "Python executable path to when calling m2c",
           "scope": "machine"
+        },
+        "kappa.askIndexCodebase": {
+          "type": "boolean",
+          "default": "true",
+          "description": "Show the message asking to index the codebase"
         }
       }
     },

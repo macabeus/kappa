@@ -1,10 +1,12 @@
 import * as vscode from 'vscode';
+import { getAskIndexCodebase, setAskIndexCodebase } from '../configurations/workspace-configs';
 import { database } from '../db/db';
 import { isIndexingCodebase } from '../db/index-codebase';
 import { extractFunctionNameFromLine } from '../utils/asm-utils';
 
 export class AssemblyCodeLensProvider implements vscode.CodeLensProvider {
   #onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
+  #isDisplayingInformationMessage = false;
   readonly onDidChangeCodeLenses: vscode.Event<void> = this.#onDidChangeCodeLenses.event;
 
   async provideCodeLenses(document: vscode.TextDocument, _token: vscode.CancellationToken): Promise<vscode.CodeLens[]> {
@@ -20,13 +22,29 @@ export class AssemblyCodeLensProvider implements vscode.CodeLensProvider {
       // Check if the database is empty
       const countFunctions = await db.collections.decompFunctions.count().exec();
       if (!countFunctions) {
+        const askIndexCodebase = getAskIndexCodebase();
+        if (!askIndexCodebase || this.#isDisplayingInformationMessage) {
+          return [];
+        }
+
+        this.#isDisplayingInformationMessage = true;
         const answer = await vscode.window.showInformationMessage(
           'Database is empty. Do you want to index the codebase?',
           'Yes',
-          'No',
+          'No yet',
+          'Do not ask again',
         );
+        this.#isDisplayingInformationMessage = false;
+
         if (answer === 'Yes') {
           await vscode.commands.executeCommand('kappa.indexCodebase');
+        }
+        if (answer === 'Do not ask again') {
+          await setAskIndexCodebase(false);
+
+          vscode.window.showInformationMessage(
+            'This message will not be shown again. If you want to index, run the command "Index the codebase"',
+          );
         }
 
         return [];

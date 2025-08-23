@@ -17,7 +17,18 @@ export function getPythonExecutablePath(): string {
   return vscode.workspace.getConfiguration('kappa').get('pythonExecutablePath', '');
 }
 
-// Configuration setters
+export function getAskIndexCodebase(): boolean {
+  return vscode.workspace.getConfiguration('kappa').get('askIndexCodebase', true);
+}
+
+// Configuration setterts
+export async function setAskIndexCodebase(value: boolean) {
+  await vscode.workspace
+    .getConfiguration('kappa')
+    .update('askIndexCodebase', value, vscode.ConfigurationTarget.Workspace);
+}
+
+// Dialog setters
 export async function showInputBoxForSettingM2cPath(): Promise<string | null> {
   const m2cPath = await vscode.window.showInputBox({
     prompt: 'Enter the path for m2c on your computer. It will be stored in the VS Code settings.',
