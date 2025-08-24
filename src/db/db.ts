@@ -4,7 +4,7 @@ import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { cosineSimilarity } from 'rxdb/plugins/vector';
 import { VoyageApiResponse } from './voyage';
 import { getVoyageApiKey } from '../configurations/workspace-configs';
-import { checkFileExists, getRelativePath, getWorkspaceRoot } from '../utils/vscode-utils';
+import { checkFileExists, getRelativePath, getWorkspaceUri } from '../utils/vscode-utils';
 import { extractFunctionCallsFromAssembly } from '../utils/asm-utils';
 
 export type DecompFunctionDoc = {
@@ -44,13 +44,7 @@ class Database {
 
   async #initializeDb(): Promise<KappaRxDatabase> {
     try {
-      const workspaceRoot = getWorkspaceRoot();
-      if (!workspaceRoot) {
-        console.error('No workspace root found, cannot initialize Kappa');
-
-        // Create a dummy promise to avoid unhandled rejection
-        return new Promise(() => null);
-      }
+      const workspaceUri = getWorkspaceUri();
 
       const db: KappaRxDatabase = await createRxDatabase({
         name: 'kappa-db',
@@ -124,7 +118,7 @@ class Database {
       });
 
       // Check if the database dump file exists
-      const filePath = vscode.Uri.joinPath(vscode.workspace.workspaceFolders![0].uri, 'kappa-db.json');
+      const filePath = vscode.Uri.joinPath(workspaceUri, 'kappa-db.json');
       const databaseDumpExists = await checkFileExists(filePath.fsPath);
       if (!databaseDumpExists) {
         console.log('No existing database dump found, starting with an empty database');
@@ -370,7 +364,8 @@ class Database {
       vectors: allVectors.map((doc) => doc.toJSON()),
     };
 
-    const filePath = vscode.Uri.joinPath(vscode.workspace.workspaceFolders![0].uri, 'kappa-db.json');
+    const workspaceUri = getWorkspaceUri();
+    const filePath = vscode.Uri.joinPath(workspaceUri, 'kappa-db.json');
     await vscode.workspace.fs.writeFile(filePath, Buffer.from(JSON.stringify(dump, null, 2), 'utf-8'));
   }
 

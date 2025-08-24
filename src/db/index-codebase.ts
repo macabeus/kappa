@@ -4,6 +4,7 @@ import { getVoyageApiKey } from '../configurations/workspace-configs';
 import { registerClangLanguage, searchCodebase, Searcher } from '../utils/ast-grep-utils';
 import { findOriginalAssemblyInBuildFolder } from '../get-context-from-asm-function';
 import { listAssemblyFunctions } from '../utils/asm-utils';
+import type { CtxDecompYaml } from '../context';
 import { database } from './db';
 
 let isIndexing = false;
@@ -12,7 +13,7 @@ export function isIndexingCodebase(): boolean {
   return isIndexing;
 }
 
-export async function indexCodebase() {
+export async function indexCodebase(ctx: CtxDecompYaml) {
   if (isIndexing) {
     vscode.window.showWarningMessage('Codebase is already being indexed. Please wait until it completes.');
     return;
@@ -56,6 +57,7 @@ export async function indexCodebase() {
           }
 
           const findResult = await findOriginalAssemblyInBuildFolder({
+            ctx,
             name,
             filePath: file.fsPath,
           });

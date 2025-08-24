@@ -5,11 +5,12 @@ import { fetchPlatform } from '../decompme/platform';
 import {
   checkFileExists,
   getRelativePath,
-  getWorkspaceRoot,
+  getWorkspaceUri,
   showFilePicker,
   showFolderPicker,
   showPicker,
 } from '../utils/vscode-utils';
+import type { CtxDecompYaml } from '../context';
 import {
   getM2cPath,
   getPythonExecutablePath,
@@ -45,9 +46,11 @@ const decompYamlSchema = z.object({
 export type DecompYaml = z.infer<typeof decompYamlSchema>;
 
 export async function loadDecompYaml() {
+  const workspaceUri = getWorkspaceUri();
+
   let decompYamlPath: vscode.Uri;
-  const ymlExtension = vscode.Uri.joinPath(vscode.workspace.workspaceFolders![0].uri, 'decomp.yml');
-  const yamlExtension = vscode.Uri.joinPath(vscode.workspace.workspaceFolders![0].uri, 'decomp.yaml');
+  const ymlExtension = vscode.Uri.joinPath(workspaceUri, 'decomp.yml');
+  const yamlExtension = vscode.Uri.joinPath(workspaceUri, 'decomp.yaml');
   if (await checkFileExists(ymlExtension.fsPath)) {
     decompYamlPath = ymlExtension;
   } else if (await checkFileExists(yamlExtension.fsPath)) {
@@ -61,54 +64,54 @@ export async function loadDecompYaml() {
   try {
     const decompYaml = decompYamlSchema.parse(YAML.parse(rawContent));
     return decompYaml;
-  } catch (error) {
-    vscode.window.showErrorMessage(`Invalid decomp.yaml: ${error}`);
+  } catch {
+    const answer = await vscode.window.showInformationMessage(
+      'decomp.yaml configuration file is invalid. Do you want to fix it?',
+      'Yes',
+      'No',
+    );
+    if (answer === 'Yes') {
+      const newConfig = await createDecompYaml();
+      return newConfig;
+    }
   }
 
   return null;
 }
 
-export async function ensureDecompYamlExists({ ensureSpecificTool }: { ensureSpecificTool?: 'decompme' } = {}) {
-  const workspaceRoot = getWorkspaceRoot();
-  if (!workspaceRoot) {
-    vscode.window.showErrorMessage('No workspace found. Please open a folder.');
-    return;
+export async function ensureDecompYamlDefinesTool({
+  ctx,
+  tool,
+}: {
+  ctx: CtxDecompYaml;
+  tool: keyof DecompYaml['tools'];
+}) {
+  if (ctx.decompYaml.tools?.[tool]) {
+    return; // Configuration includes the specific tool
   }
 
-  const ymlExtension = vscode.Uri.joinPath(vscode.workspace.workspaceFolders![0].uri, 'decomp.yml');
-  const yamlExtension = vscode.Uri.joinPath(vscode.workspace.workspaceFolders![0].uri, 'decomp.yaml');
-  const decompYamlExists =
-    (await checkFileExists(ymlExtension.fsPath)) || (await checkFileExists(yamlExtension.fsPath));
-
-  let needsCreate = 'decomp.yaml configuration file not found. Do you want to create one?';
-  let decompYaml: DecompYaml | null = null;
-  if (decompYamlExists) {
-    decompYaml = await loadDecompYaml();
-    if (!decompYaml) {
-      needsCreate = 'decomp.yaml configuration file is invalid. Do you want to fix it?';
-    } else if (ensureSpecificTool === 'decompme' && !decompYaml.tools?.decompme) {
-      needsCreate = 'Missing "decompme" tool on decomp.yaml. Do you want to configure it?';
-    } else {
-      return; // Configuration is valid, no need to create
-    }
-  }
-
-  const answer = await vscode.window.showInformationMessage(needsCreate, 'Yes', 'No');
+  const answer = await vscode.window.showInformationMessage(
+    `Missing "${tool}" tool on decomp.yaml. Do you want to configure it?`,
+    'Yes',
+    'No',
+  );
 
   if (answer === 'Yes') {
-    const newConfig = await createDecompYaml(decompYaml);
+    const newConfig = await createDecompYaml(ctx.decompYaml);
     if (!newConfig) {
-      throw new Error('decomp.yaml configuration aborted');
+      throw new Error('decomp.yaml configuration update aborted');
     }
 
-    if (ensureSpecificTool === 'decompme' && !newConfig?.tools?.decompme) {
-      throw new Error('It is still missing the "decompme" configuration. Please run decomp.yaml setup again.');
+    if (!newConfig.tools?.[tool]) {
+      throw new Error(`It is still missing the configurtion for the tool "${tool}". Run decomp.yaml setup again.`);
     }
+
+    ctx.decompYaml = newConfig;
 
     return;
   }
 
-  throw new Error('decomp.yaml configuration is required');
+  throw new Error(`Action canceled. The configuration for the tool "${tool}" is required`);
 }
 
 export async function createDecompYaml(currentConfig: DecompYaml | null = null): Promise<DecompYaml | null> {
@@ -163,7 +166,7 @@ export async function createDecompYaml(currentConfig: DecompYaml | null = null):
   if (configureDecompMe === 'yes') {
     const cFiles = await vscode.workspace.findFiles('**/*.{c,cpp}', 'tools/**');
     const contextPath = await showFilePicker({
-      title: 'Enter the path to your context file',
+      title: 'Enter the path to your context file for decomp.me.',
       files: cFiles,
       defaultValue: currentConfig?.tools?.decompme?.contextPath,
     });
@@ -234,9 +237,9 @@ export async function createDecompYaml(currentConfig: DecompYaml | null = null):
 
       const cFiles = await vscode.workspace.findFiles('**/*.{c,cpp}', 'tools/**');
       const contextPath = await showFilePicker({
-        title: 'Enter the path to your context file. Esc to not use it.',
+        title: 'Enter the path to your context file for m2c. Esc to not use it.',
         files: cFiles,
-        defaultValue: currentConfig?.tools?.m2c?.contextPath ?? decompmeTool?.contextPath,
+        defaultValue: currentConfig?.tools?.m2c?.contextPath || decompmeTool?.contextPath,
       });
 
       const otherFlags = await vscode.window.showInputBox({
@@ -277,8 +280,9 @@ export async function createDecompYaml(currentConfig: DecompYaml | null = null):
     },
   };
 
-  const ymlExtension = vscode.Uri.joinPath(vscode.workspace.workspaceFolders![0].uri, 'decomp.yml');
-  const yamlExtension = vscode.Uri.joinPath(vscode.workspace.workspaceFolders![0].uri, 'decomp.yaml');
+  const workspaceUri = getWorkspaceUri();
+  const ymlExtension = vscode.Uri.joinPath(workspaceUri, 'decomp.yml');
+  const yamlExtension = vscode.Uri.joinPath(workspaceUri, 'decomp.yaml');
 
   // Delete existing `decomp.yml`, since we are creating a new one named as `decomp.yaml`
   if (await checkFileExists(ymlExtension.fsPath)) {
@@ -292,6 +296,7 @@ export async function createDecompYaml(currentConfig: DecompYaml | null = null):
 }
 
 export async function updateDecompYaml(newSettings: DecompYaml): Promise<void> {
-  const decompYamlPath = vscode.Uri.joinPath(vscode.workspace.workspaceFolders![0].uri, 'decomp.yaml');
+  const workspaceUri = getWorkspaceUri();
+  const decompYamlPath = vscode.Uri.joinPath(workspaceUri, 'decomp.yaml');
   await vscode.workspace.fs.writeFile(decompYamlPath, Buffer.from(YAML.stringify(newSettings)));
 }

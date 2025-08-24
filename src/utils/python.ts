@@ -3,6 +3,7 @@ import { checkFileExists } from './vscode-utils';
 import * as path from 'path';
 import { glob } from 'glob';
 import { getPythonExecutablePath } from '../configurations/workspace-configs';
+import type { CtxPythonExecutablePath } from '../context';
 
 /**
  * Get different Python executable paths based on the platform
@@ -60,18 +61,16 @@ export async function getPythonPaths(): Promise<string[]> {
   return paths;
 }
 
-export async function runPythonScript(cwd: string, pythonFilename: string, args: ReadonlyArray<string> = []) {
-  const pythonExecutable = getPythonExecutablePath();
-  if (!pythonExecutable) {
-    throw new Error(
-      'Python executable not found. Please run the command "Kappa: Set Python Executable Path" to set it up.',
-    );
-  }
-
-  const runCommand = pythonExecutable.includes('poetry') ? ['run', 'python'] : [];
+export async function runPythonScript(
+  ctx: CtxPythonExecutablePath,
+  cwd: string,
+  pythonFilename: string,
+  args: ReadonlyArray<string> = [],
+) {
+  const runCommand = ctx.pythonExecutablePath.includes('poetry') ? ['run', 'python'] : [];
 
   return new Promise<{ stdout: string; stderr: string; success: boolean }>((resolve) => {
-    const process = spawn(pythonExecutable, [...runCommand, pythonFilename, ...args], {
+    const process = spawn(ctx.pythonExecutablePath, [...runCommand, pythonFilename, ...args], {
       cwd,
     });
 

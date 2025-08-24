@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { objdiff } from '../objdiff/objdiff';
 import { checkFileExists, resolveAbsolutePath } from '../utils/vscode-utils';
+import { getContext } from '../context';
 
 type CommandParams = {
   functionName: string;
@@ -22,6 +23,8 @@ export class GetDiffBetweenObjectFiles implements vscode.LanguageModelTool<Comma
   async invoke(options: vscode.LanguageModelToolInvocationOptions<CommandParams>, _token: vscode.CancellationToken) {
     const { functionName, currentObjectFilePath, targetObjectFilePath } = options.input;
 
+    const ctx = await getContext({ decompYaml: true });
+
     const absoluteCurrentObjectFilePath = resolveAbsolutePath(currentObjectFilePath);
     const absoluteTargetObjectFilePath = resolveAbsolutePath(targetObjectFilePath);
 
@@ -40,11 +43,12 @@ export class GetDiffBetweenObjectFiles implements vscode.LanguageModelTool<Comma
     }
 
     const [currentParsedObject, targetParsedObject] = await Promise.all([
-      objdiff.parseObjectFile(absoluteCurrentObjectFilePath),
-      objdiff.parseObjectFile(absoluteTargetObjectFilePath),
+      objdiff.parseObjectFile(ctx, absoluteCurrentObjectFilePath),
+      objdiff.parseObjectFile(ctx, absoluteTargetObjectFilePath),
     ]);
 
     const result = await objdiff.compareObjectFiles(
+      ctx,
       absoluteCurrentObjectFilePath,
       absoluteTargetObjectFilePath,
       currentParsedObject,

@@ -3,6 +3,7 @@ import { getAskIndexCodebase, setAskIndexCodebase } from '../configurations/work
 import { database } from '../db/db';
 import { isIndexingCodebase } from '../db/index-codebase';
 import { extractFunctionNameFromLine } from '../utils/asm-utils';
+import { handleError } from '../utils/errors';
 
 export class AssemblyCodeLensProvider implements vscode.CodeLensProvider {
   #onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
@@ -115,8 +116,7 @@ export class AssemblyCodeLensProvider implements vscode.CodeLensProvider {
         }
       }
     } catch (error) {
-      vscode.window.showErrorMessage('Failed to provide code lenses for this assembly module');
-      console.error('Error providing code lenses:', error);
+      handleError({ prefixMessage: 'Failed to provide code lenses', error });
     }
 
     return codeLenses;

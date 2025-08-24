@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import type * as ObjdiffWasm from 'objdiff-wasm';
 import fs from 'fs/promises';
 import path from 'path';
-import { loadDecompYaml } from '../configurations/decomp-yaml';
+import type { CtxDecompYaml } from '../context';
 
 type ObjdiffWasm = typeof ObjdiffWasm;
 type ParsedObject = ObjdiffWasm.diff.Object;
@@ -76,16 +76,11 @@ class Objdiff {
     return objdiff;
   }
 
-  async #getDiffConfig(): Promise<DiffConfig> {
+  async #getDiffConfig(ctx: CtxDecompYaml): Promise<DiffConfig> {
     const objdiff = await this.#objdiff;
     const diffConfig = new objdiff.diff.DiffConfig();
 
-    const decompYaml = await loadDecompYaml();
-    if (!decompYaml) {
-      return diffConfig;
-    }
-
-    switch (decompYaml.platform) {
+    switch (ctx.decompYaml.platform) {
       case 'gba': {
         diffConfig.setProperty('functionRelocDiffs', 'none');
         diffConfig.setProperty('arm.archVersion', 'v4t');
@@ -141,7 +136,7 @@ class Objdiff {
         break;
       }
       default: {
-        const platform: never = decompYaml.platform;
+        const platform: never = ctx.decompYaml.platform;
         vscode.window.showErrorMessage(`Unsupported platform: ${platform}`);
       }
     }
@@ -149,9 +144,9 @@ class Objdiff {
     return diffConfig;
   }
 
-  async parseObjectFile(filePath: string): Promise<ParsedObject> {
+  async parseObjectFile(ctx: CtxDecompYaml, filePath: string): Promise<ParsedObject> {
     const objdiff = await this.#objdiff;
-    const diffConfig = await this.#getDiffConfig();
+    const diffConfig = await this.#getDiffConfig(ctx);
 
     // Read the object file as a buffer
     const fileBuffer = await fs.readFile(filePath);
@@ -162,9 +157,9 @@ class Objdiff {
     return parsedObject;
   }
 
-  async getSymbolsName(obj: ParsedObject): Promise<string[]> {
+  async getSymbolsName(ctx: CtxDecompYaml, obj: ParsedObject): Promise<string[]> {
     const objdiff = await this.#objdiff;
-    const diffConfig = await this.#getDiffConfig();
+    const diffConfig = await this.#getDiffConfig(ctx);
 
     // Run diff to get ObjectDiff
     const diffResult = objdiff.diff.runDiff(obj, undefined, diffConfig, {
@@ -201,6 +196,7 @@ class Objdiff {
   }
 
   async compareObjectFiles(
+    ctx: CtxDecompYaml,
     currentObjectPath: string,
     targetObjectPath: string,
     currentObject: ParsedObject,
@@ -208,7 +204,7 @@ class Objdiff {
     functionName: string,
   ): Promise<string> {
     const objdiff = await this.#objdiff;
-    const diffConfig = await this.#getDiffConfig();
+    const diffConfig = await this.#getDiffConfig(ctx);
 
     // Create mapping configuration
     const mappingConfig = {
@@ -241,8 +237,8 @@ class Objdiff {
 
     if (!leftSymbol || !rightSymbol) {
       const [currentSymbols, targetSymbols] = await Promise.all([
-        this.getSymbolsName(currentObject),
-        this.getSymbolsName(targetObject),
+        this.getSymbolsName(ctx, currentObject),
+        this.getSymbolsName(ctx, targetObject),
       ]);
 
       content += `## Error: Symbol Not Found\n\n`;
@@ -298,8 +294,8 @@ class Objdiff {
       // If there are no differences, we should check for mismatched functions on this module.
       // This is useful to guide AI on follow up actions.
       const [symbolsCurrentFile, symbolsTargetFile] = await Promise.all([
-        this.getSymbolsName(currentObject),
-        this.getSymbolsName(targetObject),
+        this.getSymbolsName(ctx, currentObject),
+        this.getSymbolsName(ctx, targetObject),
       ]);
 
       const mismatchedFunctionsOnThisModule = [];
