@@ -174,7 +174,7 @@ export async function loadKappaPlugins(visitor: ASTVisitor): Promise<void> {
         vscode.window.showWarningMessage(`Failed to load plugin \`${jsFile}\`: ${errorMessage}`);
       }
     }
-  } catch (error) {
+  } catch {
     vscode.window.showErrorMessage("Failed to read `.kappa-plugins` folder. Can't load kappa plugin.");
   }
 }

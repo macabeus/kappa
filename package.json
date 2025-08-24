@@ -342,6 +342,7 @@
     "@wdio/spec-reporter": "^9.19.2",
     "esbuild": "^0.25.9",
     "eslint": "^9.34.0",
+    "eslint-plugin-unused-imports": "^4.2.0",
     "npm-run-all": "^4.1.5",
     "prettier": "^3.6.2",
     "typescript": "^5.9.2",

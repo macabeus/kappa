@@ -257,7 +257,6 @@ class Database {
     const db = await this.#db;
 
     const vectorCollection = db.collections.vectors;
-    const assemblyCollection = db.collections.decompFunctions;
 
     // Get all vector documents
     const allVectorDocs = await vectorCollection.find().exec();

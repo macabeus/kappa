@@ -123,7 +123,7 @@ export async function createDecompMeScratch(functionId: string): Promise<void> {
     try {
       const contextContent = await vscode.workspace.fs.readFile(contextPath);
       context = new TextDecoder().decode(contextContent);
-    } catch (error) {
+    } catch {
       vscode.window.showWarningMessage(`Could not read context file: ${decompYaml.tools.decompme.contextPath}`);
       return;
     }
