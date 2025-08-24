@@ -4,5 +4,12 @@
   "trailingComma": "all",
   "semi": true,
   "tabWidth": 2,
-  "useTabs": false
+  "useTabs": false,
+  "importOrder": [
+    "^((@configurations)|(@db)|(@decompme)|(@language-model-tools)|(@m2c)|(@objdiff)|(@prompt-builder)|(@providers)|(@test)|(@utils)|~)\/(.*)$",
+    "^[./]"
+  ],
+  "importOrderSortSpecifiers": true,
+  "importOrderSeparation": true,
+  "plugins": ["@trivago/prettier-plugin-sort-imports"]
 }

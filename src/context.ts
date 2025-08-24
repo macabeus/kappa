@@ -1,9 +1,7 @@
 import * as vscode from 'vscode';
-import { createDecompYaml, DecompYaml, loadDecompYaml } from './configurations/decomp-yaml';
-import {
-  getPythonExecutablePath,
-  showInputBoxForSettingPythonExecutablePath,
-} from './configurations/workspace-configs';
+
+import { DecompYaml, createDecompYaml, loadDecompYaml } from '@configurations/decomp-yaml';
+import { getPythonExecutablePath, showInputBoxForSettingPythonExecutablePath } from '@configurations/workspace-configs';
 
 export type Context<
   RequireDecompYaml extends boolean,

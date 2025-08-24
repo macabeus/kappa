@@ -1,9 +1,10 @@
 import { parse } from '@ast-grep/napi';
 import * as vscode from 'vscode';
-import { loadDecompYaml, DecompYamlPlatforms } from '../configurations/decomp-yaml';
-import { database, DecompFunction } from '../db/db';
-import { getWorkspaceUri } from '../utils/vscode-utils';
-import { getFuncContext } from '../get-context-from-asm-function';
+
+import { DecompYamlPlatforms, loadDecompYaml } from '@configurations/decomp-yaml';
+import { DecompFunction, database } from '@db/db';
+import { getWorkspaceUri } from '@utils/vscode-utils';
+import { getFuncContext } from '~/get-context-from-asm-function';
 
 // Platform mapping from decomp.yaml to decomp.me
 const platformMapping: Record<DecompYamlPlatforms, string> = {

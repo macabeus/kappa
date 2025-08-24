@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
-import type { ASTNode } from './clangd/vscode-clangd';
 import { BaseLanguageClient } from 'vscode-languageclient';
 import { DefinitionRequest } from 'vscode-languageserver-protocol';
+
 import { ASTRequestType } from './clangd/ast';
+import type { ASTNode } from './clangd/vscode-clangd';
 
 /**
  * Plugin interface for the AST visitor.

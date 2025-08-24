@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
-import { objdiff } from '../objdiff/objdiff';
-import { checkFileExists, resolveAbsolutePath } from '../utils/vscode-utils';
-import { getContext } from '../context';
+
+import { objdiff } from '@objdiff/objdiff';
+import { checkFileExists, resolveAbsolutePath } from '@utils/vscode-utils';
+import { getContext } from '~/context';
 
 type CommandParams = {
   functionName: string;

@@ -1,8 +1,9 @@
-import * as vscode from 'vscode';
-import type * as ObjdiffWasm from 'objdiff-wasm';
 import fs from 'fs/promises';
+import type * as ObjdiffWasm from 'objdiff-wasm';
 import path from 'path';
-import type { CtxDecompYaml } from '../context';
+import * as vscode from 'vscode';
+
+import type { CtxDecompYaml } from '~/context';
 
 type ObjdiffWasm = typeof ObjdiffWasm;
 type ParsedObject = ObjdiffWasm.diff.Object;

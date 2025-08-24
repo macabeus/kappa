@@ -1,5 +1,4 @@
 // This file is simplified copy from https://github.com/clangd/vscode-clangd/blob/d3938b6266f4355797f1f27c4dbebda4c149fe89/src/clangd-context.ts
-
 import * as vscode from 'vscode';
 import * as vscodelc from 'vscode-languageclient/node';
 

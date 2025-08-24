@@ -1,8 +1,6 @@
 // This file is mostly a copy from https://github.com/clangd/vscode-clangd/blob/d3938b6266f4355797f1f27c4dbebda4c149fe89/src/install.ts
-
 // Automatically install clangd binary releases from GitHub.
 // This wraps `@clangd/install` in the VSCode UI. See that package for more.
-
 import * as common from '@clangd/install';
 import * as path from 'path';
 import * as vscode from 'vscode';

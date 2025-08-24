@@ -1,6 +1,6 @@
-import * as vscode from 'vscode';
-import { NapiConfig, SgNode, parse, registerDynamicLanguage } from '@ast-grep/napi';
 import langC from '@ast-grep/lang-c';
+import { NapiConfig, SgNode, parse, registerDynamicLanguage } from '@ast-grep/napi';
+import * as vscode from 'vscode';
 
 let registered = false;
 export function registerClangLanguage() {

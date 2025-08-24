@@ -1,7 +1,9 @@
-import * as vscode from 'vscode';
 import * as path from 'path';
-import { DecompYamlPlatforms } from '../configurations/decomp-yaml';
-import type { CtxDecompYaml } from '../context';
+import * as vscode from 'vscode';
+
+import { DecompYamlPlatforms } from '@configurations/decomp-yaml';
+import type { CtxDecompYaml } from '~/context';
+
 import { getWorkspaceUri } from './vscode-utils';
 
 /**

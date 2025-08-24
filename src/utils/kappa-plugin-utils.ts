@@ -1,4 +1,4 @@
-import type { ASTVisitorPlugin } from '../ast-visitor';
+import type { ASTVisitorPlugin } from '~/ast-visitor';
 
 export async function loadKappaPlugin(pluginPath: string): Promise<
   | {

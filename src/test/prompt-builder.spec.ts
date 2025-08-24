@@ -1,10 +1,12 @@
-import type { CodeLens } from 'vscode';
-import YAML from 'yaml';
 import { expect } from '@wdio/globals';
-import type { DecompYaml } from '../configurations/decomp-yaml';
-import { runOnVSCode } from './utils';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import type { CodeLens } from 'vscode';
+import YAML from 'yaml';
+
+import type { DecompYaml } from '@configurations/decomp-yaml';
+
+import { runOnVSCode } from './utils';
 
 class AsmModule {
   #functions: string[];

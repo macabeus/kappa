@@ -1,6 +1,6 @@
-import type { DecompYamlPlatforms } from '../configurations/decomp-yaml';
-import type { CtxDecompYaml } from '../context';
-import type { SamplingCFunction } from '../get-context-from-asm-function';
+import type { DecompYamlPlatforms } from '@configurations/decomp-yaml';
+import type { CtxDecompYaml } from '~/context';
+import type { SamplingCFunction } from '~/get-context-from-asm-function';
 
 export type PromptMode =
   | { type: 'ask' }

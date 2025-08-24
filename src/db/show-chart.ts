@@ -1,5 +1,6 @@
-import * as vscode from 'vscode';
 import { UMAP } from 'umap-js';
+import * as vscode from 'vscode';
+
 import { database } from './db';
 
 export async function showChart() {

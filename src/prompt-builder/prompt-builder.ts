@@ -1,8 +1,10 @@
 import * as vscode from 'vscode';
-import type { DecompFunction } from '../db/db';
-import type { CtxDecompYaml } from '../context';
-import { getFuncContext } from '../get-context-from-asm-function';
-import { craftPrompt, PromptMode } from './craft-prompt';
+
+import type { DecompFunction } from '@db/db';
+import type { CtxDecompYaml } from '~/context';
+import { getFuncContext } from '~/get-context-from-asm-function';
+
+import { PromptMode, craftPrompt } from './craft-prompt';
 
 /**
  * Return a decompilation prompt for the given function.

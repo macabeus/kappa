@@ -1,8 +1,9 @@
-import path from 'path';
 import fs from 'fs';
+import path from 'path';
 import * as vscode from 'vscode';
-import { getPythonPaths } from '../utils/python';
-import { checkFileExists, showPicker } from '../utils/vscode-utils';
+
+import { getPythonPaths } from '@utils/python';
+import { checkFileExists, showPicker } from '@utils/vscode-utils';
 
 // Configuration getters
 export function getVoyageApiKey(): string {

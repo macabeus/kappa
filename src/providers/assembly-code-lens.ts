@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
-import { getAskIndexCodebase, setAskIndexCodebase } from '../configurations/workspace-configs';
-import { database } from '../db/db';
-import { isIndexingCodebase } from '../db/index-codebase';
-import { extractFunctionNameFromLine } from '../utils/asm-utils';
-import { handleError } from '../utils/errors';
+
+import { getAskIndexCodebase, setAskIndexCodebase } from '@configurations/workspace-configs';
+import { database } from '@db/db';
+import { isIndexingCodebase } from '@db/index-codebase';
+import { extractFunctionNameFromLine } from '@utils/asm-utils';
+import { handleError } from '@utils/errors';
 
 export class AssemblyCodeLensProvider implements vscode.CodeLensProvider {
   #onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();

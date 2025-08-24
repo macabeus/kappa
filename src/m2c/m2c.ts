@@ -1,11 +1,12 @@
 import path from 'path';
 import * as vscode from 'vscode';
-import { loadDecompYaml, DecompYamlPlatforms, updateDecompYaml, createDecompYaml } from '../configurations/decomp-yaml';
-import { database } from '../db/db';
-import { getWorkspaceUri } from '../utils/vscode-utils';
-import { getM2cPath, showInputBoxForSettingM2cPath } from '../configurations/workspace-configs';
-import { runPythonScript } from '../utils/python';
-import type { CtxDecompYaml, CtxPythonExecutablePath } from '../context';
+
+import { DecompYamlPlatforms, updateDecompYaml } from '@configurations/decomp-yaml';
+import { getM2cPath, showInputBoxForSettingM2cPath } from '@configurations/workspace-configs';
+import { database } from '@db/db';
+import { runPythonScript } from '@utils/python';
+import { getWorkspaceUri } from '@utils/vscode-utils';
+import type { CtxDecompYaml, CtxPythonExecutablePath } from '~/context';
 
 // Map platform from decomp.yaml to m2c target architecture
 const platformMapping: Record<DecompYamlPlatforms, string | null> = {

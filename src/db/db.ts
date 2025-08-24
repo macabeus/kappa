@@ -1,11 +1,13 @@
-import * as vscode from 'vscode';
-import { createRxDatabase, RxCollection, RxDatabase, RxCollectionCreator, RxDocument } from 'rxdb';
+import { RxCollection, RxCollectionCreator, RxDatabase, createRxDatabase } from 'rxdb';
 import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { cosineSimilarity } from 'rxdb/plugins/vector';
+import * as vscode from 'vscode';
+
+import { getVoyageApiKey } from '@configurations/workspace-configs';
+import { extractFunctionCallsFromAssembly } from '@utils/asm-utils';
+import { checkFileExists, getRelativePath, getWorkspaceUri } from '@utils/vscode-utils';
+
 import { VoyageApiResponse } from './voyage';
-import { getVoyageApiKey } from '../configurations/workspace-configs';
-import { checkFileExists, getRelativePath, getWorkspaceUri } from '../utils/vscode-utils';
-import { extractFunctionCallsFromAssembly } from '../utils/asm-utils';
 
 export type DecompFunctionDoc = {
   id: string;

@@ -1,9 +1,10 @@
 import { spawn } from 'child_process';
-import { checkFileExists } from './vscode-utils';
-import * as path from 'path';
 import { glob } from 'glob';
-import { getPythonExecutablePath } from '../configurations/workspace-configs';
-import type { CtxPythonExecutablePath } from '../context';
+import * as path from 'path';
+
+import type { CtxPythonExecutablePath } from '~/context';
+
+import { checkFileExists } from './vscode-utils';
 
 /**
  * Get different Python executable paths based on the platform

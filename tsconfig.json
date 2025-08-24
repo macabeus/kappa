@@ -10,6 +10,19 @@
     "strict": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
+    "paths": {
+      "~/*": ["./src/*"],
+      "@configurations/*": ["./src/configurations/*"],
+      "@db/*": ["./src/db/*"],
+      "@decompme/*": ["./src/decompme/*"],
+      "@language-model-tools/*": ["./src/language-model-tools/*"],
+      "@m2c/*": ["./src/m2c/*"],
+      "@objdiff/*": ["./src/objdiff/*"],
+      "@prompt-builder/*": ["./src/prompt-builder/*"],
+      "@providers/*": ["./src/providers/*"],
+      "@test/*": ["./src/test/*"],
+      "@utils/*": ["./src/utils/*"]
+    },
     "types": ["node", "@wdio/globals/types", "@wdio/mocha-framework", "wdio-vscode-service"]
     /* Additional Checks */
     // "noImplicitReturns": true, /* Report error when not all code paths in function return a value. */

@@ -1,31 +1,32 @@
 import * as vscode from 'vscode';
 import type { BaseLanguageClient } from 'vscode-languageclient';
-import { activateClangd } from './clangd/activate-clangd';
-import { ClangdExtension } from './clangd/vscode-clangd';
-import { ASTVisitor } from './ast-visitor';
-import { ASTRequestType } from './clangd/ast';
-import { runTestsForCurrentKappaPlugin, loadKappaPlugins } from './kappa-plugins';
-import { ClangdExtensionImpl } from './clangd/api';
-import { createDecompilePrompt } from './prompt-builder/prompt-builder';
-import { registerClangLanguage } from './utils/ast-grep-utils';
-import { removeAssemblyFunction } from './utils/asm-utils';
-import { getRelativePath, showFilePicker, showPicker } from './utils/vscode-utils';
-import { database } from './db/db';
-import { indexCodebase } from './db/index-codebase';
-import { showChart } from './db/show-chart';
-import { GetDiffBetweenObjectFiles } from './language-model-tools/objdiff';
-import { AssemblyCodeLensProvider } from './providers/assembly-code-lens';
-import { objdiff } from './objdiff/objdiff';
-import { decompileWithM2c } from './m2c/m2c';
-import { createDecompYaml, ensureDecompYamlDefinesTool, loadDecompYaml } from './configurations/decomp-yaml';
+
+import { createDecompYaml, ensureDecompYamlDefinesTool, loadDecompYaml } from '@configurations/decomp-yaml';
 import {
   getM2cPath,
-  getPythonExecutablePath,
   showInputBoxForSettingM2cPath,
   showInputBoxForSettingPythonExecutablePath,
-} from './configurations/workspace-configs';
-import { createDecompMeScratch } from './decompme/create-scratch';
-import { getContext } from './context';
+} from '@configurations/workspace-configs';
+import { database } from '@db/db';
+import { indexCodebase } from '@db/index-codebase';
+import { showChart } from '@db/show-chart';
+import { createDecompMeScratch } from '@decompme/create-scratch';
+import { GetDiffBetweenObjectFiles } from '@language-model-tools/objdiff';
+import { decompileWithM2c } from '@m2c/m2c';
+import { objdiff } from '@objdiff/objdiff';
+import { createDecompilePrompt } from '@prompt-builder/prompt-builder';
+import { AssemblyCodeLensProvider } from '@providers/assembly-code-lens';
+import { removeAssemblyFunction } from '@utils/asm-utils';
+import { registerClangLanguage } from '@utils/ast-grep-utils';
+import { getRelativePath, showFilePicker, showPicker } from '@utils/vscode-utils';
+import { ASTVisitor } from '~/ast-visitor';
+import { getContext } from '~/context';
+import { loadKappaPlugins, runTestsForCurrentKappaPlugin } from '~/kappa-plugins';
+
+import { activateClangd } from './clangd/activate-clangd';
+import { ClangdExtensionImpl } from './clangd/api';
+import { ASTRequestType } from './clangd/ast';
+import { ClangdExtension } from './clangd/vscode-clangd';
 
 // Constants for configuration
 const CLANGD_CHECK_INTERVAL = 100;

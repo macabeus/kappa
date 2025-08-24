@@ -1,10 +1,12 @@
-import * as vscode from 'vscode';
 import path from 'path';
-import { getVoyageApiKey } from '../configurations/workspace-configs';
-import { registerClangLanguage, searchCodebase, Searcher } from '../utils/ast-grep-utils';
-import { findOriginalAssemblyInBuildFolder } from '../get-context-from-asm-function';
-import { listAssemblyFunctions } from '../utils/asm-utils';
-import type { CtxDecompYaml } from '../context';
+import * as vscode from 'vscode';
+
+import { getVoyageApiKey } from '@configurations/workspace-configs';
+import { listAssemblyFunctions } from '@utils/asm-utils';
+import { Searcher, registerClangLanguage, searchCodebase } from '@utils/ast-grep-utils';
+import type { CtxDecompYaml } from '~/context';
+import { findOriginalAssemblyInBuildFolder } from '~/get-context-from-asm-function';
+
 import { database } from './db';
 
 let isIndexing = false;

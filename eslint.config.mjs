@@ -25,6 +25,18 @@ export default [
         },
       ],
 
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['../'],
+              message: "Relative imports are not allowed. Please use '~/' or '@...' instead.",
+            },
+          ],
+        },
+      ],
+
       curly: 'warn',
       eqeqeq: 'warn',
       'no-throw-literal': 'warn',

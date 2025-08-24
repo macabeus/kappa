@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+
 import { GetWorkspaceUriError } from './errors';
 
 export function getWorkspaceUri(): vscode.Uri {

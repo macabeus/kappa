@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import YAML from 'yaml';
 import z from 'zod';
-import { fetchPlatform } from '../decompme/platform';
+
+import { fetchPlatform } from '@decompme/platform';
 import {
   checkFileExists,
   getRelativePath,
@@ -9,8 +10,9 @@ import {
   showFilePicker,
   showFolderPicker,
   showPicker,
-} from '../utils/vscode-utils';
-import type { CtxDecompYaml } from '../context';
+} from '@utils/vscode-utils';
+import type { CtxDecompYaml } from '~/context';
+
 import {
   getM2cPath,
   getPythonExecutablePath,

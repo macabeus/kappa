@@ -1,11 +1,12 @@
-import * as vscode from 'vscode';
-import * as path from 'path';
-import * as fs from 'fs';
 import dedent from 'dedent';
 import { createPatch } from 'diff';
-import { ASTVisitor } from './ast-visitor';
-import { getWorkspaceUri } from './utils/vscode-utils';
-import { loadKappaPlugin } from './utils/kappa-plugin-utils';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as vscode from 'vscode';
+
+import { loadKappaPlugin } from '@utils/kappa-plugin-utils';
+import { getWorkspaceUri } from '@utils/vscode-utils';
+import { ASTVisitor } from '~/ast-visitor';
 
 export async function runTestsForCurrentKappaPlugin(visitor: ASTVisitor): Promise<void> {
   const workspaceUri = getWorkspaceUri();
