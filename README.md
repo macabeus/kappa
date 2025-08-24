@@ -5,7 +5,7 @@
 [![GitHub Stars](https://flat.badgen.net/github/stars/macabeus/kappa?icon=github)](https://github.com/macabeus/kappa)
 [![Visual Studio Marketplace Downloads](https://flat.badgen.net/vs-marketplace/d/macabeus.kappa?icon=visualstudio)](https://marketplace.visualstudio.com/items?itemName=macabeus.kappa)
 
-VS Code extension designed to help you when decompiling a codebase.
+Your decompiler buddy who lives on VS Code.
 
 - **✨ AI Prompt Builder:** Craft high-quality prompts to guide AI in decompiling a function.
 - **🤖 Agent Mode:** Automatically decompile a given function, until it reache 100% match.
@@ -19,6 +19,8 @@ VS Code extension designed to help you when decompiling a codebase.
 <img alt="Walkthrough" src="./media/readme/walkthrough.png" />
 
 Make sure to follow the Kappa Setup walkthrough to get the extension working on your project.
+
+> :warning: This extensions runs only on single-root workspaces. Open a folder or workspace first to use it.
 
 ## ✨ AI Prompt Builder
 
