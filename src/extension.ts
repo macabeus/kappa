@@ -9,7 +9,7 @@ import { ClangdExtensionImpl } from './clangd/api';
 import { createDecompilePrompt } from './prompt-builder/prompt-builder';
 import { registerClangLanguage } from './utils/ast-grep-utils';
 import { removeAssemblyFunction } from './utils/asm-utils';
-import { getRelativePath, getWorkspaceRoot, showFilePicker, showPicker } from './utils/vscode-utils';
+import { getRelativePath, showFilePicker, showPicker } from './utils/vscode-utils';
 import { database } from './db/db';
 import { indexCodebase } from './db/index-codebase';
 import { showChart } from './db/show-chart';
@@ -17,7 +17,7 @@ import { GetDiffBetweenObjectFiles } from './language-model-tools/objdiff';
 import { AssemblyCodeLensProvider } from './providers/assembly-code-lens';
 import { objdiff } from './objdiff/objdiff';
 import { decompileWithM2c } from './m2c/m2c';
-import { createDecompYaml, ensureDecompYamlExists, loadDecompYaml } from './configurations/decomp-yaml';
+import { createDecompYaml, ensureDecompYamlDefinesTool, loadDecompYaml } from './configurations/decomp-yaml';
 import {
   getM2cPath,
   getPythonExecutablePath,
@@ -25,6 +25,7 @@ import {
   showInputBoxForSettingPythonExecutablePath,
 } from './configurations/workspace-configs';
 import { createDecompMeScratch } from './decompme/create-scratch';
+import { getContext } from './context';
 
 // Constants for configuration
 const CLANGD_CHECK_INTERVAL = 100;
@@ -88,13 +89,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
 
   // Register commands
   vscode.commands.registerCommand('kappa.indexCodebase', async () => {
-    const workspaceRoot = getWorkspaceRoot();
-    if (!workspaceRoot) {
-      vscode.window.showErrorMessage('No workspace found, cannot index codebase. Please open a folder instead.');
-      return;
-    }
+    const ctx = await getContext({ decompYaml: true });
 
-    await indexCodebase();
+    await indexCodebase(ctx);
 
     // Refresh code lenses after indexing
     codeLensProvider.refresh();
@@ -102,7 +99,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
 
   vscode.commands.registerCommand('kappa.runPromptBuilder', async (functionId?: string) => {
     registerClangLanguage();
-    await ensureDecompYamlExists();
+
+    const ctx = await getContext({ decompYaml: true });
 
     if (!functionId) {
       // TODO: Should show a dropdown selector with all functions in the current file if in an assembly file;
@@ -119,7 +117,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
       return;
     }
 
-    const prompt = await createDecompilePrompt(decompFunction, { type: 'ask' });
+    const prompt = await createDecompilePrompt(ctx, decompFunction, { type: 'ask' });
     if (!prompt) {
       return;
     }
@@ -133,7 +131,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
 
   vscode.commands.registerCommand('kappa.startDecompilerAgent', async (functionId?: string) => {
     registerClangLanguage();
-    await ensureDecompYamlExists();
+
+    const ctx = await getContext({ decompYaml: true });
 
     if (!functionId) {
       // TODO: Same as from `kappa.startDecompilerAgent`.
@@ -179,7 +178,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
     }
 
     // Start the decompiler agent for the selected function
-    const prompt = await createDecompilePrompt(decompFunction, {
+    const prompt = await createDecompilePrompt(ctx, decompFunction, {
       type: 'agent',
       sourceFilePath: getRelativePath(sourceFilePath),
       currentObjectFilePath: getRelativePath(currentObjectFilePath),
@@ -189,7 +188,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
       return;
     }
 
-    await removeAssemblyFunction(decompFunction.asmModulePath, decompFunction.name);
+    await removeAssemblyFunction(ctx, decompFunction.asmModulePath, decompFunction.name);
 
     await vscode.commands.executeCommand('workbench.action.chat.open', prompt);
   });
@@ -273,7 +272,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
   });
 
   vscode.commands.registerCommand('kappa.compareSymbolFromObjectFiles', async () => {
-    await ensureDecompYamlExists();
+    const ctx = await getContext({ decompYaml: true });
 
     const objectFiles = await vscode.workspace.findFiles('**/*.o', 'tools/**');
 
@@ -299,14 +298,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
 
     // Parse the object files
     const [currentParsedObject, targetParsedObject] = await Promise.all([
-      objdiff.parseObjectFile(currentFilePath),
-      objdiff.parseObjectFile(targetFilePath),
+      objdiff.parseObjectFile(ctx, currentFilePath),
+      objdiff.parseObjectFile(ctx, targetFilePath),
     ]);
 
     // Show symbols picker
     const [symbolsCurrentFile, symbolsTargetFile] = await Promise.all([
-      objdiff.getSymbolsName(currentParsedObject),
-      objdiff.getSymbolsName(targetParsedObject),
+      objdiff.getSymbolsName(ctx, currentParsedObject),
+      objdiff.getSymbolsName(ctx, targetParsedObject),
     ]);
 
     const items = [...symbolsCurrentFile, ...symbolsTargetFile].reduce(
@@ -340,6 +339,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
 
     // Compare the selected symbol from the object files
     const diffResult = await objdiff.compareObjectFiles(
+      ctx,
       currentFilePath,
       targetFilePath,
       currentParsedObject,
@@ -361,7 +361,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
 
   vscode.commands.registerCommand('kappa.createDecompMeScratch', async (functionId?: string) => {
     registerClangLanguage();
-    await ensureDecompYamlExists({ ensureSpecificTool: 'decompme' });
+    const ctx = await getContext({ decompYaml: true });
+    await ensureDecompYamlDefinesTool({ ctx, tool: 'decompme' });
 
     if (!functionId) {
       // TODO: Same as from `kappa.startDecompilerAgent`.
@@ -373,7 +374,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
   });
 
   vscode.commands.registerCommand('kappa.decompileWithM2c', async (functionId?: string) => {
-    await ensureDecompYamlExists();
+    const ctx = await getContext({ decompYaml: true, pythonExecutablePath: true });
 
     if (!functionId) {
       // TODO: Same as from `kappa.startDecompilerAgent`.
@@ -382,10 +383,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
     }
 
     const hasM2cPath = Boolean(getM2cPath());
-    const hasPythonExecutablePath = Boolean(getPythonExecutablePath());
-    if (!hasM2cPath || !hasPythonExecutablePath) {
-      const answer = await vscode.window.showErrorMessage(
-        'm2c path or Python executable path is not configured. Please run "Kappa: Create or update decomp.yaml" and configure m2c.',
+    if (!hasM2cPath) {
+      const answer = await vscode.window.showInformationMessage(
+        'm2c path is not configured. Run decomp.yaml creation and set m2c.',
         'Run decomp.yaml creation',
         'Ignore',
       );
@@ -397,7 +397,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
       return;
     }
 
-    const result = await decompileWithM2c(functionId);
+    const result = await decompileWithM2c(ctx, functionId);
     if (!result) {
       return;
     }

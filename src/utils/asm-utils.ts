@@ -1,7 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { getWorkspaceRoot } from './vscode-utils';
-import { DecompYamlPlatforms, loadDecompYaml } from '../configurations/decomp-yaml';
+import { DecompYamlPlatforms } from '../configurations/decomp-yaml';
+import type { CtxDecompYaml } from '../context';
+import { getWorkspaceUri } from './vscode-utils';
 
 /**
  * Extract function name from assembly code.
@@ -518,20 +519,16 @@ export function listAssemblyFunctions(assemblyContent: string): Array<{ name: st
  * @param modulePath The relative path from workspace root to the assembly module file
  * @param functionName The name of the function to remove
  */
-export async function removeAssemblyFunction(modulePath: string, functionName: string): Promise<void> {
-  const decompYaml = await loadDecompYaml();
-  if (!decompYaml) {
-    throw new Error('decomp.yaml not found');
-  }
-
+export async function removeAssemblyFunction(
+  ctx: CtxDecompYaml,
+  modulePath: string,
+  functionName: string,
+): Promise<void> {
   // Get workspace root
-  const workspaceRoot = getWorkspaceRoot();
-  if (!workspaceRoot) {
-    throw new Error('No workspace root found');
-  }
+  const workspaceUri = getWorkspaceUri();
 
   // Convert relative path to absolute path
-  const absolutePath = path.join(workspaceRoot, modulePath);
+  const absolutePath = path.join(workspaceUri.fsPath, modulePath);
 
   // Read the assembly file
   const fileUri = vscode.Uri.file(absolutePath);
@@ -539,7 +536,7 @@ export async function removeAssemblyFunction(modulePath: string, functionName: s
   const assemblyFileContent = new TextDecoder().decode(assemblyFileBuffer);
 
   // Find the function to remove
-  const functionCode = extractAssemblyFunction(decompYaml.platform, assemblyFileContent, functionName);
+  const functionCode = extractAssemblyFunction(ctx.decompYaml.platform, assemblyFileContent, functionName);
   if (!functionCode) {
     throw new Error(`Function "${functionName}" not found in assembly file "${modulePath}"`);
   }

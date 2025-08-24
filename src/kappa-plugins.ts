@@ -4,15 +4,11 @@ import * as fs from 'fs';
 import dedent from 'dedent';
 import { createPatch } from 'diff';
 import { ASTVisitor } from './ast-visitor';
-import { getWorkspaceRoot } from './utils/vscode-utils';
+import { getWorkspaceUri } from './utils/vscode-utils';
 import { loadKappaPlugin } from './utils/kappa-plugin-utils';
 
 export async function runTestsForCurrentKappaPlugin(visitor: ASTVisitor): Promise<void> {
-  const workspaceRoot = getWorkspaceRoot();
-  if (!workspaceRoot) {
-    vscode.window.showErrorMessage("No workspace root found. Can't run tests for kappa plugin.");
-    return;
-  }
+  const workspaceUri = getWorkspaceUri();
 
   try {
     const activeDocummentUri = vscode.window.activeTextEditor?.document.uri;
@@ -39,7 +35,7 @@ export async function runTestsForCurrentKappaPlugin(visitor: ASTVisitor): Promis
       given: string;
       then: string;
     }>;
-    const testsFolder = path.join(workspaceRoot, '.kappa-plugins', 'tests-run');
+    const testsFolder = path.join(workspaceUri.fsPath, '.kappa-plugins', 'tests-run');
 
     let testingReport = `# Kappa Plugin Tests Report for "${plugin.constructor.name}"\n\n`;
 
@@ -137,13 +133,9 @@ export async function runTestsForCurrentKappaPlugin(visitor: ASTVisitor): Promis
  * @param visitor The AST visitor to register plugins with
  */
 export async function loadKappaPlugins(visitor: ASTVisitor): Promise<void> {
-  const workspaceRoot = getWorkspaceRoot();
-  if (!workspaceRoot) {
-    vscode.window.showErrorMessage("No workspace root found. Can't load kappa plugin.");
-    return;
-  }
+  const workspaceUri = getWorkspaceUri();
 
-  const pluginsFolder = path.join(workspaceRoot, '.kappa-plugins');
+  const pluginsFolder = path.join(workspaceUri.fsPath, '.kappa-plugins');
 
   // Check if plugins folder exists
   if (!fs.existsSync(pluginsFolder)) {

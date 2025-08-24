@@ -1,20 +1,19 @@
 import * as vscode from 'vscode';
+import { GetWorkspaceUriError } from './errors';
 
-export function getWorkspaceRoot(): string | undefined {
+export function getWorkspaceUri(): vscode.Uri {
   const workspaceFolders = vscode.workspace.workspaceFolders;
-  if (!workspaceFolders || workspaceFolders.length === 0) {
-    return;
+
+  if (!workspaceFolders || workspaceFolders.length !== 1) {
+    throw new GetWorkspaceUriError(
+      'The Kappa extension only supports single-root workspaces. Open a folder or workspace first.',
+    );
   }
 
-  return workspaceFolders[0].uri.fsPath;
+  return workspaceFolders[0].uri;
 }
 
 export function getRelativePath(filePath: string): string {
-  const workspaceRoot = getWorkspaceRoot();
-  if (!workspaceRoot) {
-    throw new Error('No workspace root found');
-  }
-
   return vscode.workspace.asRelativePath(filePath, false);
 }
 
@@ -28,10 +27,7 @@ export async function checkFileExists(filePath: string): Promise<boolean> {
 }
 
 export function resolveAbsolutePath(path: string): string {
-  const workspaceRoot = getWorkspaceRoot();
-  if (!workspaceRoot) {
-    throw new Error('No workspace root found');
-  }
+  const workspaceUri = getWorkspaceUri();
 
   // Check if path is already absolute
   if (vscode.Uri.file(path).scheme === 'file' && vscode.Uri.file(path).fsPath === path) {
@@ -39,7 +35,7 @@ export function resolveAbsolutePath(path: string): string {
   }
 
   // Get workspace folder name
-  const workspaceFolderName = vscode.Uri.file(workspaceRoot).path.split('/').pop();
+  const workspaceFolderName = workspaceUri.path.split('/').pop();
 
   // Check if relative path starts with workspace folder name to avoid duplication
   let relativePath = path;
@@ -48,7 +44,7 @@ export function resolveAbsolutePath(path: string): string {
   }
 
   // Convert relative path to absolute
-  return vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), relativePath).fsPath;
+  return vscode.Uri.joinPath(workspaceUri, relativePath).fsPath;
 }
 
 export async function showPicker<
@@ -127,11 +123,6 @@ export async function showFilePicker({
   defaultValue?: string;
   allowCustomPath?: boolean;
 }): Promise<string | null> {
-  const workspaceRoot = getWorkspaceRoot();
-  if (!workspaceRoot) {
-    throw new Error('No workspace root found');
-  }
-
   const relativeFiles = files.map((file) => ({
     label: getRelativePath(file.fsPath),
     value: file.fsPath,
@@ -165,11 +156,7 @@ export async function showFolderPicker({
   defaultValue?: string;
   allowCustomPath?: boolean;
 } = {}): Promise<string | null> {
-  const workspaceRoot = getWorkspaceRoot();
-  if (!workspaceRoot) {
-    throw new Error('No workspace root found');
-  }
-
+  const workspaceRoot = getWorkspaceUri().fsPath;
   const searchPath = basePath ? resolveAbsolutePath(basePath) : workspaceRoot;
 
   // Get all folders in the specified path

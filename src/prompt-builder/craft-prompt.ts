@@ -1,4 +1,5 @@
-import { DecompYamlPlatforms, loadDecompYaml } from '../configurations/decomp-yaml';
+import type { DecompYamlPlatforms } from '../configurations/decomp-yaml';
+import type { CtxDecompYaml } from '../context';
 import type { SamplingCFunction } from '../get-context-from-asm-function';
 
 export type PromptMode =
@@ -139,6 +140,7 @@ const mappingPlatforms: Record<DecompYamlPlatforms, { name: string; assembly: st
 };
 
 export async function craftPrompt({
+  ctx,
   modulePath,
   asmName,
   asmDeclaration,
@@ -148,6 +150,7 @@ export async function craftPrompt({
   typeDefinitions,
   promptMode,
 }: {
+  ctx: CtxDecompYaml;
   modulePath: string;
   asmName: string;
   asmDeclaration?: string;
@@ -157,11 +160,6 @@ export async function craftPrompt({
   typeDefinitions: string[];
   promptMode: PromptMode;
 }): Promise<string> {
-  const decompYaml = await loadDecompYaml();
-  if (!decompYaml) {
-    throw new Error('decomp.yaml not found');
-  }
-
   // TODO: Instead of slicing, we should use a sampling strategy to select examples
   const examples = sampling.filter((sample) => !sample.callsTarget).slice(0, 5);
   const examplePrompts = examples.length
@@ -198,7 +196,7 @@ export async function craftPrompt({
     ? `${templateTypeDefinitions}${typeDefinitions.map((typeDef) => `\`\`\`c\n${typeDef}\n\`\`\``).join('\n\n')}`
     : '';
 
-  const platform = mappingPlatforms[decompYaml.platform];
+  const platform = mappingPlatforms[ctx.decompYaml.platform];
 
   const finalPrompt = templateDecompile
     .replace('{assemblyLanguage}', platform.assembly)

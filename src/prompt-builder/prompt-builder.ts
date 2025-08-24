@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import type { DecompFunction } from '../db/db';
+import type { CtxDecompYaml } from '../context';
 import { getFuncContext } from '../get-context-from-asm-function';
 import { craftPrompt, PromptMode } from './craft-prompt';
 
@@ -7,21 +8,17 @@ import { craftPrompt, PromptMode } from './craft-prompt';
  * Return a decompilation prompt for the given function.
  */
 export async function createDecompilePrompt(
+  ctx: CtxDecompYaml,
   decompFunction: DecompFunction,
   promptMode: PromptMode,
 ): Promise<string | undefined> {
   try {
-    const rootWorkspace = vscode.workspace.workspaceFolders?.[0];
-    if (!rootWorkspace) {
-      vscode.window.showErrorMessage('No workspace folder found. Please open a folder first.');
-      return;
-    }
-
     // Get the function from the database
     const { asmDeclaration, calledFunctionsDeclarations, sampling, typeDefinitions } =
       await getFuncContext(decompFunction);
 
     const promptContent = await craftPrompt({
+      ctx,
       modulePath: decompFunction.asmModulePath,
       asmName: decompFunction.name,
       asmDeclaration,

@@ -2,7 +2,7 @@ import { parse } from '@ast-grep/napi';
 import * as vscode from 'vscode';
 import { loadDecompYaml, DecompYamlPlatforms } from '../configurations/decomp-yaml';
 import { database, DecompFunction } from '../db/db';
-import { getWorkspaceRoot } from '../utils/vscode-utils';
+import { getWorkspaceUri } from '../utils/vscode-utils';
 import { getFuncContext } from '../get-context-from-asm-function';
 
 // Platform mapping from decomp.yaml to decomp.me
@@ -84,11 +84,7 @@ async function getInitialSourceCode(context: string, decompFunction: DecompFunct
  */
 export async function createDecompMeScratch(functionId: string): Promise<void> {
   try {
-    const workspaceRoot = getWorkspaceRoot();
-    if (!workspaceRoot) {
-      vscode.window.showErrorMessage('No workspace found.');
-      return;
-    }
+    const workspaceUri = getWorkspaceUri();
 
     // Load decomp.yaml
     const decompYaml = await loadDecompYaml();
@@ -121,7 +117,7 @@ export async function createDecompMeScratch(functionId: string): Promise<void> {
     const compiler = decompYaml.tools.decompme.compiler;
 
     // Get context
-    const contextPath = vscode.Uri.joinPath(vscode.Uri.file(workspaceRoot), decompYaml.tools.decompme.contextPath);
+    const contextPath = vscode.Uri.joinPath(workspaceUri, decompYaml.tools.decompme.contextPath);
     let context: string;
     try {
       const contextContent = await vscode.workspace.fs.readFile(contextPath);
