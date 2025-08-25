@@ -85,10 +85,6 @@
       {
         "command": "kappa.changeM2cPath",
         "title": "Kappa: Set M2C Path"
-      },
-      {
-        "command": "kappa.changePythonExecutable",
-        "title": "Kappa: Set Python Executable Path"
       }
     ],
     "configuration": {
@@ -210,7 +206,7 @@
           "description": "Path for m2c on your computer",
           "scope": "machine"
         },
-        "kappa.pythonExecutablePath": {
+        "kappa.m2cPythonExecutablePath": {
           "type": "string",
           "default": "",
           "description": "Python executable path to when calling m2c",

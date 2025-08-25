@@ -14,8 +14,8 @@ export function getM2cPath(): string {
   return vscode.workspace.getConfiguration('kappa').get('m2cPath', '');
 }
 
-export function getPythonExecutablePath(): string {
-  return vscode.workspace.getConfiguration('kappa').get('pythonExecutablePath', '');
+export function getM2cPythonExecutablePath(): string {
+  return vscode.workspace.getConfiguration('kappa').get('m2cPythonExecutablePath', '');
 }
 
 export function getAskIndexCodebase(): boolean {
@@ -67,11 +67,17 @@ export async function showInputBoxForSettingM2cPath(): Promise<string | null> {
   return m2cPath;
 }
 
-export async function showInputBoxForSettingPythonExecutablePath(): Promise<string | null> {
+export async function showInputBoxForSettingPythonExecutablePath({
+  settingName,
+}: {
+  settingName: 'm2cPythonExecutablePath';
+}): Promise<string | null> {
+  const defaultValue = vscode.workspace.getConfiguration('kappa').get(settingName, '');
+
   const pythonExecutablePath = await showPicker({
     title: 'Select the Python executable path. It will be stored in the VS Code settings.',
     items: await getPythonPaths().then((paths) => paths.map((path) => ({ label: path, value: path }))),
-    defaultValue: getPythonExecutablePath(),
+    defaultValue,
     allowCustomValue: true,
   });
 
@@ -81,7 +87,7 @@ export async function showInputBoxForSettingPythonExecutablePath(): Promise<stri
 
   await vscode.workspace
     .getConfiguration('kappa')
-    .update('pythonExecutablePath', pythonExecutablePath, vscode.ConfigurationTarget.Global);
+    .update(settingName, pythonExecutablePath, vscode.ConfigurationTarget.Global);
 
   return pythonExecutablePath;
 }

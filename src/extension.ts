@@ -2,11 +2,7 @@ import * as vscode from 'vscode';
 import type { BaseLanguageClient } from 'vscode-languageclient';
 
 import { createDecompYaml, ensureDecompYamlDefinesTool, loadDecompYaml } from '@configurations/decomp-yaml';
-import {
-  getM2cPath,
-  showInputBoxForSettingM2cPath,
-  showInputBoxForSettingPythonExecutablePath,
-} from '@configurations/workspace-configs';
+import { getM2cPath, showInputBoxForSettingM2cPath } from '@configurations/workspace-configs';
 import { database } from '@db/db';
 import { indexCodebase } from '@db/index-codebase';
 import { showChart } from '@db/show-chart';
@@ -230,10 +226,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
     await showInputBoxForSettingM2cPath();
   });
 
-  vscode.commands.registerCommand('kappa.changePythonExecutable', async () => {
-    await showInputBoxForSettingPythonExecutablePath();
-  });
-
   vscode.commands.registerCommand('kappa.runDecompYamlCreation', async () => {
     const decompYaml = await loadDecompYaml();
     await createDecompYaml(decompYaml);
@@ -375,7 +367,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
   });
 
   vscode.commands.registerCommand('kappa.decompileWithM2c', async (functionId?: string) => {
-    const ctx = await getContext({ decompYaml: true, pythonExecutablePath: true });
+    const ctx = await getContext({ decompYaml: true, m2cPythonExecutablePath: true });
 
     if (!functionId) {
       // TODO: Same as from `kappa.startDecompilerAgent`.

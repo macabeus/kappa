@@ -15,7 +15,7 @@ import type { CtxDecompYaml } from '~/context';
 
 import {
   getM2cPath,
-  getPythonExecutablePath,
+  getM2cPythonExecutablePath,
   showInputBoxForSettingM2cPath,
   showInputBoxForSettingPythonExecutablePath,
 } from './workspace-configs';
@@ -227,9 +227,11 @@ export async function createDecompYaml(currentConfig: DecompYaml | null = null):
         }
       }
 
-      const hasPythonExecutablePath = Boolean(getPythonExecutablePath());
+      const hasPythonExecutablePath = Boolean(getM2cPythonExecutablePath());
       if (!hasPythonExecutablePath) {
-        const pythonExecutablePathUpdated = await showInputBoxForSettingPythonExecutablePath();
+        const pythonExecutablePathUpdated = await showInputBoxForSettingPythonExecutablePath({
+          settingName: 'm2cPythonExecutablePath',
+        });
 
         if (!pythonExecutablePathUpdated) {
           vscode.window.showErrorMessage('No Python executable path provided. Config file not created.');

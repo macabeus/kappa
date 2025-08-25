@@ -2,7 +2,7 @@ import { spawn } from 'child_process';
 import { glob } from 'glob';
 import * as path from 'path';
 
-import type { CtxPythonExecutablePath } from '~/context';
+import type { CtxM2cPythonExecutablePath } from '~/context';
 
 import { checkFileExists } from './vscode-utils';
 
@@ -63,15 +63,15 @@ export async function getPythonPaths(): Promise<string[]> {
 }
 
 export async function runPythonScript(
-  ctx: CtxPythonExecutablePath,
+  ctx: CtxM2cPythonExecutablePath,
   cwd: string,
   pythonFilename: string,
   args: ReadonlyArray<string> = [],
 ) {
-  const runCommand = ctx.pythonExecutablePath.includes('poetry') ? ['run', 'python'] : [];
+  const runCommand = ctx.m2cPythonExecutablePath.includes('poetry') ? ['run', 'python'] : [];
 
   return new Promise<{ stdout: string; stderr: string; success: boolean }>((resolve) => {
-    const process = spawn(ctx.pythonExecutablePath, [...runCommand, pythonFilename, ...args], {
+    const process = spawn(ctx.m2cPythonExecutablePath, [...runCommand, pythonFilename, ...args], {
       cwd,
     });
 

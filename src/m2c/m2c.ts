@@ -2,11 +2,15 @@ import path from 'path';
 import * as vscode from 'vscode';
 
 import { DecompYamlPlatforms, updateDecompYaml } from '@configurations/decomp-yaml';
-import { getM2cPath, showInputBoxForSettingM2cPath } from '@configurations/workspace-configs';
+import {
+  getM2cPath,
+  showInputBoxForSettingM2cPath,
+  showInputBoxForSettingPythonExecutablePath,
+} from '@configurations/workspace-configs';
 import { database } from '@db/db';
 import { runPythonScript } from '@utils/python';
 import { getWorkspaceUri } from '@utils/vscode-utils';
-import type { CtxDecompYaml, CtxPythonExecutablePath } from '~/context';
+import type { CtxDecompYaml, CtxM2cPythonExecutablePath } from '~/context';
 
 // Map platform from decomp.yaml to m2c target architecture
 const platformMapping: Record<DecompYamlPlatforms, string | null> = {
@@ -26,7 +30,7 @@ const platformMapping: Record<DecompYamlPlatforms, string | null> = {
  * Decompile a function using m2c and open the result in a new VS Code document
  */
 export async function decompileWithM2c(
-  ctx: CtxDecompYaml & CtxPythonExecutablePath,
+  ctx: CtxDecompYaml & CtxM2cPythonExecutablePath,
   functionId: string,
 ): Promise<string | null> {
   try {
@@ -93,7 +97,7 @@ export async function decompileWithM2c(
 }
 
 async function handleM2cError(
-  ctx: CtxDecompYaml & CtxPythonExecutablePath,
+  ctx: CtxDecompYaml & CtxM2cPythonExecutablePath,
   functionId: string,
   stderr: string,
 ): Promise<string | null> {
@@ -119,9 +123,29 @@ async function handleM2cError(
   }
 
   if (stderr.includes('No module named')) {
-    vscode.window.showErrorMessage(
+    const answer = await vscode.window.showErrorMessage(
       'It is missing to install the dependencies for m2c. Please follow the m2c installation guide.',
+      'Try again',
+      'Use another Python executable path',
     );
+
+    if (answer === 'Try again') {
+      return decompileWithM2c(ctx, functionId);
+    } else if (answer === 'Use another Python executable path') {
+      const pythonExecutablePath = await showInputBoxForSettingPythonExecutablePath({
+        settingName: 'm2cPythonExecutablePath',
+      });
+
+      if (!pythonExecutablePath) {
+        vscode.window.showErrorMessage('No Python executable path provided.');
+        return null;
+      }
+
+      ctx.m2cPythonExecutablePath = pythonExecutablePath;
+
+      return decompileWithM2c(ctx, functionId);
+    }
+
     return null;
   }
 
