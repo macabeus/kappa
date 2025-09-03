@@ -1,3 +1,4 @@
+import { DecompPermuterWebviewProvider } from '@webview/decomp-permuter-webview';
 import * as vscode from 'vscode';
 import type { BaseLanguageClient } from 'vscode-languageclient';
 
@@ -23,6 +24,8 @@ import { activateClangd } from './clangd/activate-clangd';
 import { ClangdExtensionImpl } from './clangd/api';
 import { ASTRequestType } from './clangd/ast';
 import { ClangdExtension } from './clangd/vscode-clangd';
+import { spawnDecompPermuter } from './decomp-permuter/decomp-permuter';
+import { streamOutput } from './utils/process-utils';
 
 // Constants for configuration
 const CLANGD_CHECK_INTERVAL = 100;
@@ -418,6 +421,33 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
     edit.insert(targetUri, new vscode.Position(lastLine, 0), `\n${result}`);
     await vscode.workspace.applyEdit(edit);
     await vscode.window.showTextDocument(targetDocument);
+  });
+
+  vscode.commands.registerCommand('kappa.runDecompPermuter', async () => {
+    const ctx = await getContext({ decompYaml: true, permuterPythonExecutablePath: true });
+
+    const panel = DecompPermuterWebviewProvider.createOrShow();
+
+    const result = await spawnDecompPermuter(ctx);
+
+    if (!result) {
+      panel.postDecompOutput('nothing returned');
+      return;
+    }
+
+    for await (const line of streamOutput(result.permutePythonProcess)) {
+      panel.postDecompOutput(line);
+    }
+
+    const bestMatch = await result.getBestMatch();
+    panel.postBestMatch(bestMatch ?? 'No best match found.');
+  });
+
+  // Register webview panel serializer for persistence
+  vscode.window.registerWebviewPanelSerializer(DecompPermuterWebviewProvider.viewType, {
+    async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, _state: unknown) {
+      DecompPermuterWebviewProvider.revive(webviewPanel, context.extensionUri);
+    },
   });
 
   // Register Language Model Tools

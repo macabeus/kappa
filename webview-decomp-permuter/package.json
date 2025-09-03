@@ -1,0 +1,26 @@
+{
+  "name": "webview-decomp-permuter",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@vscode-elements/react-elements": "^2.3.1",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "vscode-messenger-common": "^0.5.1",
+    "vscode-messenger-webview": "^0.5.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "@types/vscode-webview": "^1.57.5",
+    "@vitejs/plugin-react": "^5.0.2",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.3"
+  }
+}

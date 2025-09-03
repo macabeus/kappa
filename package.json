@@ -6,6 +6,9 @@
   "publisher": "macabeus",
   "icon": "media/branding/logo.png",
   "type": "module",
+  "workspaces": [
+    "webview-decomp-permuter"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/macabeus/kappa.git"
@@ -85,6 +88,10 @@
       {
         "command": "kappa.changeM2cPath",
         "title": "Kappa: Set M2C Path"
+      },
+      {
+        "command": "kappa.runDecompPermuter",
+        "title": "Kappa: Run decomp-permuter"
       }
     ],
     "configuration": {
@@ -212,6 +219,12 @@
           "description": "Python executable path to when calling m2c",
           "scope": "machine"
         },
+        "kappa.permuterPythonExecutablePath": {
+          "type": "string",
+          "default": "",
+          "description": "Python executable path to when calling permuter",
+          "scope": "machine"
+        },
         "kappa.askIndexCodebase": {
           "type": "boolean",
           "default": "true",
@@ -299,8 +312,9 @@
   },
   "scripts": {
     "vscode:prepublish": "yarn run package",
-    "build": "yarn format && yarn run check-types && yarn run lint && yarn run format:check && node esbuild.js",
-    "package": "yarn run check-types && yarn run lint && yarn run format:check && node esbuild.js --production",
+    "build": "yarn format && yarn run check-types && yarn run lint && yarn run format:check && node esbuild.js && yarn workspace webview-decomp-permuter build",
+    "package": "yarn run check-types && yarn run lint && yarn run format:check && node esbuild.js --production && yarn workspace webview-decomp-permuter build",
+    "build:webview": "yarn workspace webview-decomp-permuter build",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
     "format": "prettier --write .",
@@ -321,6 +335,8 @@
     "rxjs": "^7.8.2",
     "umap-js": "^1.4.0",
     "vscode-languageclient": "^9.0.1",
+    "vscode-messenger": "^0.5.1",
+    "vscode-messenger-common": "^0.5.1",
     "yaml": "^2.8.0",
     "zod": "^4.0.5"
   },
