@@ -8,9 +8,10 @@ import {
   showInputBoxForSettingPythonExecutablePath,
 } from '@configurations/workspace-configs';
 import { database } from '@db/db';
-import { runPythonScript } from '@utils/python';
+import { spawnPythonScript } from '@utils/python';
 import { getWorkspaceUri } from '@utils/vscode-utils';
 import type { CtxDecompYaml, CtxM2cPythonExecutablePath } from '~/context';
+import { getOutput } from '~/utils/process-utils';
 
 // Map platform from decomp.yaml to m2c target architecture
 const platformMapping: Record<DecompYamlPlatforms, string | null> = {
@@ -82,7 +83,8 @@ export async function decompileWithM2c(
       args.push('--context', contextFullPath);
     }
 
-    const result = await runPythonScript(ctx, m2cPath, 'm2c.py', args);
+    const pythonProcess = await spawnPythonScript(ctx.m2cPythonExecutablePath, m2cPath, 'm2c.py', args);
+    const result = await getOutput(pythonProcess);
     if (!result.success) {
       return handleM2cError(ctx, functionId, result.stderr || result.stdout);
     }

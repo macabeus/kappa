@@ -18,6 +18,10 @@ export function getM2cPythonExecutablePath(): string {
   return vscode.workspace.getConfiguration('kappa').get('m2cPythonExecutablePath', '');
 }
 
+export function getPermuterPythonExecutablePath(): string {
+  return vscode.workspace.getConfiguration('kappa').get('permuterPythonExecutablePath', '');
+}
+
 export function getAskIndexCodebase(): boolean {
   return vscode.workspace.getConfiguration('kappa').get('askIndexCodebase', true);
 }
@@ -70,7 +74,7 @@ export async function showInputBoxForSettingM2cPath(): Promise<string | null> {
 export async function showInputBoxForSettingPythonExecutablePath({
   settingName,
 }: {
-  settingName: 'm2cPythonExecutablePath';
+  settingName: 'm2cPythonExecutablePath' | 'permuterPythonExecutablePath';
 }): Promise<string | null> {
   const defaultValue = vscode.workspace.getConfiguration('kappa').get(settingName, '');
 

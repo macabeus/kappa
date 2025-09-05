@@ -3,26 +3,36 @@ import * as vscode from 'vscode';
 import { DecompYaml, createDecompYaml, loadDecompYaml } from '@configurations/decomp-yaml';
 import {
   getM2cPythonExecutablePath,
+  getPermuterPythonExecutablePath,
   showInputBoxForSettingPythonExecutablePath,
 } from '@configurations/workspace-configs';
 
 export type Context<
   RequireDecompYaml extends boolean,
   RequireM2cPythonExecutablePath extends boolean,
+  RequirePermuterPythonExecutablePath extends boolean,
 > = (RequireDecompYaml extends true ? { decompYaml: DecompYaml } : {}) &
-  (RequireM2cPythonExecutablePath extends true ? { m2cPythonExecutablePath: string } : {});
+  (RequireM2cPythonExecutablePath extends true ? { m2cPythonExecutablePath: string } : {}) &
+  (RequirePermuterPythonExecutablePath extends true ? { decompPythonExecutablePath: string } : {});
 
-export type CtxDecompYaml = Context<true, false>;
-export type CtxM2cPythonExecutablePath = Context<false, true>;
+export type CtxDecompYaml = Context<true, false, false>;
+export type CtxM2cPythonExecutablePath = Context<false, true, false>;
+export type CtxPermuterPythonExecutablePath = Context<false, false, true>;
 
 export async function getContext<
   RequireDecompYaml extends boolean = false,
   RequireM2cPythonExecutablePath extends boolean = false,
+  RequirePermuterPythonExecutablePath extends boolean = false,
 >(require: {
   decompYaml?: RequireDecompYaml;
   m2cPythonExecutablePath?: RequireM2cPythonExecutablePath;
-}): Promise<Context<RequireDecompYaml, RequireM2cPythonExecutablePath>> {
-  const ctx: { decompYaml?: DecompYaml; workspaceRoot?: string; m2cPythonExecutablePath?: string } = {};
+  permuterPythonExecutablePath?: RequirePermuterPythonExecutablePath;
+}): Promise<Context<RequireDecompYaml, RequireM2cPythonExecutablePath, RequirePermuterPythonExecutablePath>> {
+  const ctx: {
+    decompYaml?: DecompYaml;
+    m2cPythonExecutablePath?: string;
+    decompPythonExecutablePath?: string;
+  } = {};
 
   // Get decomp.yaml if requested
   if (require.decompYaml) {
@@ -48,7 +58,7 @@ export async function getContext<
     ctx.decompYaml = decompYaml;
   }
 
-  // Get Python executable path if requested
+  // Get Python executable path for m2c if requested
   if (require.m2cPythonExecutablePath) {
     let m2cPythonExecutablePath: string | null = getM2cPythonExecutablePath();
 
@@ -74,6 +84,32 @@ export async function getContext<
     ctx.m2cPythonExecutablePath = m2cPythonExecutablePath;
   }
 
+  // Get Python executable path for permuter if requested
+  if (require.permuterPythonExecutablePath) {
+    let permuterPythonExecutablePath: string | null = getPermuterPythonExecutablePath();
+
+    if (!permuterPythonExecutablePath) {
+      const answer = await vscode.window.showInformationMessage(
+        'Python executable path for permuter is not defined. Do you want to set it now?',
+        'Yes',
+        'No',
+      );
+
+      if (answer === 'No') {
+        throw new Error('Action canceled. Python executable path for permuter is required.');
+      }
+
+      permuterPythonExecutablePath = await showInputBoxForSettingPythonExecutablePath({
+        settingName: 'permuterPythonExecutablePath',
+      });
+      if (!permuterPythonExecutablePath) {
+        throw new Error('Action canceled. Python executable path is still not set');
+      }
+    }
+
+    ctx.decompPythonExecutablePath = permuterPythonExecutablePath;
+  }
+
   // Return the assembled context
-  return ctx as Context<RequireDecompYaml, RequireM2cPythonExecutablePath>;
+  return ctx as Context<RequireDecompYaml, RequireM2cPythonExecutablePath, RequirePermuterPythonExecutablePath>;
 }

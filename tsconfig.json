@@ -21,12 +21,14 @@
       "@prompt-builder/*": ["./src/prompt-builder/*"],
       "@providers/*": ["./src/providers/*"],
       "@test/*": ["./src/test/*"],
-      "@utils/*": ["./src/utils/*"]
+      "@utils/*": ["./src/utils/*"],
+      "@webview/*": ["./src/webview/*"]
     },
     "types": ["node", "@wdio/globals/types", "@wdio/mocha-framework", "wdio-vscode-service"]
     /* Additional Checks */
     // "noImplicitReturns": true, /* Report error when not all code paths in function return a value. */
     // "noFallthroughCasesInSwitch": true, /* Report errors for fallthrough cases in switch statement. */
     // "noUnusedParameters": true,  /* Report errors on unused parameters. */
-  }
+  },
+  "exclude": ["webview-decomp-permuter/**/*"]
 }

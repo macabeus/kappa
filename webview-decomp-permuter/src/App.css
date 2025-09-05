@@ -1,0 +1,87 @@
+/* Layout styles for the app */
+.app {
+  padding: 20px;
+  height: 100vh;
+  box-sizing: border-box;
+}
+
+h1 {
+  margin-bottom: 24px;
+  font-size: 24px;
+  font-weight: normal;
+}
+
+/* Error section */
+.error {
+  margin-bottom: 24px;
+  padding: 12px;
+  border-radius: 4px;
+  background-color: var(--vscode-inputValidation-errorBackground);
+  border: 1px solid var(--vscode-inputValidation-errorBorder);
+  color: var(--vscode-inputValidation-errorForeground);
+}
+
+.error h3 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+}
+
+.error p {
+  margin: 0;
+  font-size: 13px;
+}
+
+/* Output section */
+.output {
+  margin-bottom: 24px;
+}
+
+.output h3 {
+  margin-bottom: 12px;
+  font-size: 16px;
+  font-weight: normal;
+}
+
+.output-content {
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  background-color: var(--vscode-terminal-background);
+  min-height: 200px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 12px;
+  font-family: var(--vscode-editor-font-family);
+  font-size: var(--vscode-editor-font-size);
+}
+
+.no-output {
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
+  margin: 0;
+}
+
+.output-lines {
+  margin: 0;
+}
+
+.output-line {
+  margin: 0;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Status section */
+.status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 4px;
+  background-color: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+}
+
+.status span {
+  font-size: 13px;
+}
