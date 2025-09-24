@@ -6,15 +6,18 @@ import { getM2cPath, showInputBoxForSettingM2cPath } from '@configurations/works
 import { database } from '@db/db';
 import { indexCodebase } from '@db/index-codebase';
 import { showChart } from '@db/show-chart';
+import { DecompPermuter } from '@decomp-permuter/decomp-permuter';
 import { createDecompMeScratch } from '@decompme/create-scratch';
 import { GetDiffBetweenObjectFiles } from '@language-model-tools/objdiff';
 import { decompileWithM2c } from '@m2c/m2c';
 import { objdiff } from '@objdiff/objdiff';
 import { createDecompilePrompt } from '@prompt-builder/prompt-builder';
 import { AssemblyCodeLensProvider } from '@providers/assembly-code-lens';
+import { CCodeLensProvider } from '@providers/c-code-lens';
 import { removeAssemblyFunction } from '@utils/asm-utils';
 import { registerClangLanguage } from '@utils/ast-grep-utils';
-import { getRelativePath, showFilePicker, showPicker } from '@utils/vscode-utils';
+import { findWorkspaceFilesContainingText, getRelativePath, showFilePicker, showPicker } from '@utils/vscode-utils';
+import { DecompPermuterWebviewProvider } from '@webview/decomp-permuter-webview';
 import { ASTVisitor } from '~/ast-visitor';
 import { getContext } from '~/context';
 import { loadKappaPlugins, runTestsForCurrentKappaPlugin } from '~/kappa-plugins';
@@ -80,8 +83,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
 
   // Register providers
   const codeLensProvider = new AssemblyCodeLensProvider();
+  const cLensProvider = new CCodeLensProvider();
   context.subscriptions.push(
     vscode.languages.registerCodeLensProvider([{ language: 'arm' }, { pattern: '**/*.{s,S,asm}' }], codeLensProvider),
+    vscode.languages.registerCodeLensProvider([{ language: 'c' }, { pattern: '**/*.c' }], cLensProvider),
   );
 
   // Register commands
@@ -418,6 +423,67 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
     edit.insert(targetUri, new vscode.Position(lastLine, 0), `\n${result}`);
     await vscode.workspace.applyEdit(edit);
     await vscode.window.showTextDocument(targetDocument);
+  });
+
+  vscode.commands.registerCommand('kappa.runDecompPermuter', async (functionName: string, cFilePath: string) => {
+    const ctx = await getContext({ decompYaml: true, decompPermuterPythonExecutablePath: true });
+
+    // Get target assembly file path
+    const searchTerm = `glabel ${functionName}`;
+    const matchingFiles = await findWorkspaceFilesContainingText(searchTerm, { filePattern: '**/*.{s,S,asm}' });
+
+    if (matchingFiles.length === 0) {
+      vscode.window.showErrorMessage(`No assembly file found containing the function label for "${functionName}".`);
+      return;
+    }
+
+    const relevantAsmFiles = matchingFiles.map((filePath) => vscode.Uri.file(filePath));
+
+    let asmFilePath: string;
+
+    if (relevantAsmFiles.length === 1) {
+      asmFilePath = relevantAsmFiles[0].fsPath;
+    } else {
+      const selectedAsmFilePath = await showFilePicker({
+        title: 'Select The Target Assembly File',
+        files: relevantAsmFiles,
+      });
+
+      if (!selectedAsmFilePath) {
+        return;
+      }
+
+      asmFilePath = selectedAsmFilePath;
+    }
+
+    // Start decomp-permuter
+    const decompPermuter = await DecompPermuter.spawn(ctx, {
+      targetFunctionName: functionName,
+      cFilePath,
+      asmFilePath,
+    });
+
+    if (!decompPermuter) {
+      vscode.window.showErrorMessage('Failed to start decomp-permuter.');
+      return;
+    }
+
+    const { api } = DecompPermuterWebviewProvider.createOrShow();
+
+    api.setImportedPath(decompPermuter.importedPath);
+
+    for await (const output of decompPermuter.streamDecompPermuterOutput()) {
+      api.postDecompOutput(output);
+    }
+
+    api.setLoadingFinished();
+  });
+
+  // Register webview panel serializer for persistence
+  vscode.window.registerWebviewPanelSerializer(DecompPermuterWebviewProvider.viewType, {
+    async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, _state: unknown) {
+      DecompPermuterWebviewProvider.revive(webviewPanel, context.extensionUri);
+    },
   });
 
   // Register Language Model Tools

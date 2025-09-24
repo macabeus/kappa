@@ -6,6 +6,10 @@
   "publisher": "macabeus",
   "icon": "media/branding/logo.png",
   "type": "module",
+  "workspaces": [
+    "kappa",
+    "webview-decomp-permuter"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/macabeus/kappa.git"
@@ -212,6 +216,18 @@
           "description": "Python executable path to when calling m2c",
           "scope": "machine"
         },
+        "kappa.decompPermuterPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path for decomp-permuter on your computer",
+          "scope": "machine"
+        },
+        "kappa.decompPermuterPythonExecutablePath": {
+          "type": "string",
+          "default": "",
+          "description": "Python executable path to when calling permuter",
+          "scope": "machine"
+        },
         "kappa.askIndexCodebase": {
           "type": "boolean",
           "default": "true",
@@ -299,8 +315,9 @@
   },
   "scripts": {
     "vscode:prepublish": "yarn run package",
-    "build": "yarn format && yarn run check-types && yarn run lint && yarn run format:check && node esbuild.js",
-    "package": "yarn run check-types && yarn run lint && yarn run format:check && node esbuild.js --production",
+    "build": "yarn format && yarn run check-types && yarn run lint && yarn run format:check && node esbuild.js && yarn workspace webview-decomp-permuter build",
+    "package": "yarn run check-types && yarn run lint && yarn run format:check && node esbuild.js --production && yarn workspace webview-decomp-permuter build",
+    "build:webview": "yarn workspace webview-decomp-permuter build",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
     "format": "prettier --write .",
@@ -309,6 +326,7 @@
     "test": "wdio run ./src/test/wdio.conf.ts"
   },
   "packageManager": "yarn@4.9.2+sha512.1fc009bc09d13cfd0e19efa44cbfc2b9cf6ca61482725eb35bbc5e257e093ebf4130db6dfe15d604ff4b79efd8e1e8e99b25fa7d0a6197c9f9826358d4d65c3c",
+  "types": "src/webview-api.ts",
   "dependencies": {
     "@ast-grep/lang-c": "^0.0.3",
     "@ast-grep/napi": "^0.39.3",
@@ -342,6 +360,7 @@
     "npm-run-all": "^4.1.5",
     "prettier": "^3.6.2",
     "typescript": "^5.9.2",
-    "wdio-vscode-service": "^6.1.3"
+    "wdio-vscode-service": "^6.1.3",
+    "webview-decomp-permuter": "workspace:*"
   }
 }

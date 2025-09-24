@@ -8,7 +8,8 @@ import {
   showInputBoxForSettingPythonExecutablePath,
 } from '@configurations/workspace-configs';
 import { database } from '@db/db';
-import { runPythonScript } from '@utils/python';
+import { getOutput } from '@utils/process-utils';
+import { spawnPythonScript } from '@utils/python';
 import { getWorkspaceUri } from '@utils/vscode-utils';
 import type { CtxDecompYaml, CtxM2cPythonExecutablePath } from '~/context';
 
@@ -44,7 +45,7 @@ export async function decompileWithM2c(
     }
 
     // Get m2c path from configuration
-    const m2cPath = getM2cPath();
+    let m2cPath: string | null = getM2cPath();
     if (!m2cPath) {
       const answer = await vscode.window.showInformationMessage(
         'm2c path is not configured. Do you want to confiure it now?',
@@ -52,10 +53,14 @@ export async function decompileWithM2c(
         'No',
       );
 
-      if (answer === 'Yes') {
-        await showInputBoxForSettingM2cPath();
+      if (answer !== 'Yes') {
+        return null;
       }
 
+      m2cPath = await showInputBoxForSettingM2cPath();
+    }
+    if (!m2cPath) {
+      vscode.window.showErrorMessage('No m2c path provided.');
       return null;
     }
 
@@ -82,7 +87,8 @@ export async function decompileWithM2c(
       args.push('--context', contextFullPath);
     }
 
-    const result = await runPythonScript(ctx, m2cPath, 'm2c.py', args);
+    const pythonProcess = await spawnPythonScript(ctx.m2cPythonExecutablePath, m2cPath, 'm2c.py', args);
+    const result = await getOutput(pythonProcess);
     if (!result.success) {
       return handleM2cError(ctx, functionId, result.stderr || result.stdout);
     }
