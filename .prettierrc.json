@@ -6,7 +6,7 @@
   "tabWidth": 2,
   "useTabs": false,
   "importOrder": [
-    "^((@configurations)|(@db)|(@decompme)|(@language-model-tools)|(@m2c)|(@objdiff)|(@prompt-builder)|(@providers)|(@test)|(@utils)|~)\/(.*)$",
+    "^((@configurations)|(@db)|(@decomp-permuter)|(@decompme)|(@language-model-tools)|(@m2c)|(@objdiff)|(@prompt-builder)|(@providers)|(@test)|(@utils)|(@webview)|~)\/(.*)$",
     "^[./]"
   ],
   "importOrderSortSpecifiers": true,

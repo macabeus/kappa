@@ -135,7 +135,7 @@ async function getCodebaseContext(decompFunction: DecompFunction): Promise<Codeb
 
   let declarationsNode: SgNode[] = [];
 
-  // Searcher for finding relevant function declarations (e.g., the target assembly function and functions called in the assembly)
+  // Searcher for relevant function declarations (e.g., the target assembly function and functions called in the assembly)
   const declarationsMatcher = {
     rule: {
       kind: 'identifier',
