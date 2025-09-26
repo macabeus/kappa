@@ -9,7 +9,7 @@ Your decompiler buddy who lives on VS Code.
 
 - **✨ AI Prompt Builder:** Craft high-quality prompts to guide AI in decompiling a function.
 - **🤖 Agent Mode:** Automatically decompile a given function, until it reache 100% match.
-- **🐍 Integration with popular decompilation toolings:** Create a scratch on [decomp.me](https://decomp.me/) in one click, call [objdiff](https://github.com/encounter/objdiff) and [m2c](https://github.com/matt-kempster/m2c) from VS Code easily.
+- **🐍 Integration with popular decompilation toolings:** Create a scratch on [decomp.me](https://decomp.me/) in one click, call [m2c](https://github.com/matt-kempster/m2c), [decomp-permuter](https://github.com/simonlindholm/decomp-permuter) and [objdiff](https://github.com/encounter/objdiff) from VS Code easily.
 - **🔌 Automated Code Fixes:** Use plugins to automatically update the code’s AST, eliminating repetitive tasks and correcting common errors.
 
 > [📚 Learn how this project was developed on Substack](https://gambiconf.substack.com/p/development-journey-on-game-decompilation)
@@ -82,15 +82,23 @@ Make your changes and compile calling `make` to check if it's working.
 Stop only when there are no more differences.
 ```
 
-## 🐸 Integration with decomp.me
+## 🐍 Integrations
+
+### m2c
+
+Decompile assembly functions using [m2c](https://github.com/matt-kempster/m2c) by clicking "Decompile with m2c" code lens above assembly functions.
+
+### decomp-permuter
+
+<img alt="Permute a function" src="./media/readme/decomp-permuter.png" />
+
+Generate code variations using [decomp-permuter](https://github.com/simonlindholm/decomp-permuter) by clicking "Permute it" above C functions. Compare different permutations in the side panel to find better variants. Score zero means that this variant compiles to an assembly that matches with the target one.
+
+### decomp.me
 
 <img alt="Create Scratch" src="./media/readme/create-scratch.gif" />
 
 Create a new scratch on [decomp.me](https://decomp.me/) instantly by clicking the code lens that appears above assembly functions. It automatically includes the type definitions from your code base which are used by the function and aren't on the context.
-
-## 🐍 Integration with m2c
-
-Decompile assembly functions using [m2c](https://github.com/matt-kempster/m2c) by clicking "Decompile with m2c" code lens above assembly functions.
 
 ## 🔌 Kappa Plugins
 

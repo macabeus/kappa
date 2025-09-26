@@ -2,14 +2,12 @@ import { spawn } from 'child_process';
 import { glob } from 'glob';
 import * as path from 'path';
 
-import type { CtxM2cPythonExecutablePath } from '~/context';
-
 import { checkFileExists } from './vscode-utils';
 
 /**
  * Get different Python executable paths based on the platform
  */
-export async function getPythonPaths(): Promise<string[]> {
+export async function getPythonPaths({ listPoetry = true }: { listPoetry?: boolean } = {}): Promise<string[]> {
   const paths: string[] = [];
 
   if (process.platform === 'win32') {
@@ -33,10 +31,6 @@ export async function getPythonPaths(): Promise<string[]> {
   } else {
     // Unix-like systems (macOS, Linux)
     const possiblePythonPaths = [
-      '/usr/local/bin/poetry',
-      '/opt/homebrew/bin/poetry',
-      `${process.env.HOME}/.local/bin/poetry`,
-      `${process.env.HOME}/.poetry/bin/poetry`,
       '/usr/bin/python3',
       '/usr/local/bin/python3',
       '/opt/homebrew/bin/python3',
@@ -44,6 +38,15 @@ export async function getPythonPaths(): Promise<string[]> {
       '/usr/local/bin/python',
       '/opt/homebrew/bin/python',
     ];
+
+    if (listPoetry) {
+      possiblePythonPaths.push(
+        '/usr/local/bin/poetry',
+        '/opt/homebrew/bin/poetry',
+        `${process.env.HOME}/.local/bin/poetry`,
+        `${process.env.HOME}/.poetry/bin/poetry`,
+      );
+    }
 
     const promises = possiblePythonPaths.map(async (pythonPath) => {
       const exists = await checkFileExists(pythonPath);
@@ -62,44 +65,38 @@ export async function getPythonPaths(): Promise<string[]> {
   return paths;
 }
 
-export async function runPythonScript(
-  ctx: CtxM2cPythonExecutablePath,
+export async function spawnPythonScript(
+  pythonExecutablePath: string,
   cwd: string,
   pythonFilename: string,
   args: ReadonlyArray<string> = [],
 ) {
-  const runCommand = ctx.m2cPythonExecutablePath.includes('poetry') ? ['run', 'python'] : [];
+  const runCommand = pythonExecutablePath.includes('poetry') ? ['run', 'python'] : [];
 
-  return new Promise<{ stdout: string; stderr: string; success: boolean }>((resolve) => {
-    const process = spawn(ctx.m2cPythonExecutablePath, [...runCommand, pythonFilename, ...args], {
-      cwd,
-    });
+  // Check for virtual environment
+  const venvPath = path.join(cwd, '.venv');
+  const hasVenv = await checkFileExists(venvPath);
 
-    let stdout = '';
-    let stderr = '';
+  let spawnCommand: string;
+  let spawnArgs: string[];
 
-    process.stdout.on('data', (data: Buffer) => {
-      stdout += data.toString();
-    });
+  if (hasVenv && !pythonExecutablePath.includes('poetry')) {
+    const venvPythonPath =
+      process.platform === 'win32'
+        ? path.join(venvPath, 'Scripts', 'python.exe')
+        : path.join(venvPath, 'bin', 'python');
 
-    process.stderr.on('data', (data: Buffer) => {
-      stderr += data.toString();
-    });
+    spawnCommand = venvPythonPath;
+    spawnArgs = [pythonFilename, ...args];
+  } else {
+    spawnCommand = pythonExecutablePath;
+    spawnArgs = [...runCommand, pythonFilename, ...args];
+  }
 
-    process.on('close', (code: number) => {
-      resolve({
-        stdout,
-        stderr,
-        success: code === 0,
-      });
-    });
-
-    process.on('error', (error: Error) => {
-      resolve({
-        stdout,
-        stderr: error.message,
-        success: false,
-      });
-    });
+  const childProcess = spawn(spawnCommand, spawnArgs, {
+    cwd,
+    shell: false,
   });
+
+  return childProcess;
 }

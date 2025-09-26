@@ -1,0 +1,6 @@
+# Build outputs
+dist/
+node_modules/
+
+# Temporary files
+temp-types/

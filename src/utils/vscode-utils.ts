@@ -1,3 +1,7 @@
+import fs from 'fs';
+import { readFile } from 'fs/promises';
+import { glob } from 'glob';
+import path from 'path';
 import * as vscode from 'vscode';
 
 import { GetWorkspaceUriError } from './errors';
@@ -16,6 +20,15 @@ export function getWorkspaceUri(): vscode.Uri {
 
 export function getRelativePath(filePath: string): string {
   return vscode.workspace.asRelativePath(filePath, false);
+}
+
+export function checkIsDirectory(path: string): boolean {
+  try {
+    const isDirectory = fs.lstatSync(path).isDirectory();
+    return isDirectory;
+  } catch {
+    return false;
+  }
 }
 
 export async function checkFileExists(filePath: string): Promise<boolean> {
@@ -46,6 +59,50 @@ export function resolveAbsolutePath(path: string): string {
 
   // Convert relative path to absolute
   return vscode.Uri.joinPath(workspaceUri, relativePath).fsPath;
+}
+
+/**
+ * Find files containing a specific search term from a given path.
+ */
+export async function findWorkspaceFilesContainingText(
+  searchTerm: string,
+  { filePattern = '*' } = {},
+): Promise<string[]> {
+  const workspaceRoot = getWorkspaceUri().fsPath;
+
+  const asmPattern = path.join(workspaceRoot, filePattern);
+  const files = await glob(asmPattern, {
+    ignore: path.join(workspaceRoot, 'tools/**'),
+    absolute: true,
+  });
+
+  const batchSize = 100;
+  const matchingFiles: string[] = [];
+
+  // Process files in batches to avoid overwhelming the system
+  for (let i = 0; i < files.length; i += batchSize) {
+    const batch = files.slice(i, i + batchSize);
+
+    // Process each batch concurrently
+    const batchPromises = batch.map(async (filePath) => {
+      try {
+        const content = await readFile(filePath, 'utf8');
+        if (content.includes(searchTerm)) {
+          return filePath;
+        }
+      } catch (error) {
+        // Silently skip files that can't be read (permissions, etc.)
+        console.warn(`Could not read file ${filePath}:`, error);
+      }
+      return null;
+    });
+
+    const batchResults = await Promise.all(batchPromises);
+    const validResults = batchResults.filter((result): result is string => result !== null);
+    matchingFiles.push(...validResults);
+  }
+
+  return matchingFiles;
 }
 
 export async function showPicker<

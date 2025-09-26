@@ -49,3 +49,73 @@ export async function searchCodebase(files: vscode.Uri[], searchers: Searcher[])
     }
   }
 }
+
+/**
+ * Extract only the target function from C source code, removing all other function definitions
+ * @param sourceCode The original C source code
+ * @param targetFunctionName The name of the function to extract
+ * @returns The C source code containing only the target function and any non-function code
+ */
+export function extractTargetFunction(sourceCode: string, targetFunctionName: string): string {
+  registerClangLanguage();
+
+  const source = parse('c', sourceCode);
+  const root = source.root();
+
+  // Find all function definitions
+  const functionDefinitions = root.findAll({
+    rule: {
+      kind: 'function_definition',
+    },
+  });
+
+  // Find the target function definition
+  let targetFunction: SgNode | null = null;
+  const functionsToRemove: SgNode[] = [];
+
+  for (const funcDef of functionDefinitions) {
+    // Look for the function name in the function declarator
+    const functionDeclarator = funcDef.find({
+      rule: {
+        kind: 'function_declarator',
+      },
+    });
+
+    if (functionDeclarator) {
+      const identifier = functionDeclarator.find({
+        rule: {
+          kind: 'identifier',
+        },
+      });
+
+      if (identifier && identifier.text() === targetFunctionName) {
+        targetFunction = funcDef;
+      } else {
+        functionsToRemove.push(funcDef);
+      }
+    }
+  }
+
+  if (!targetFunction) {
+    throw new Error(`Function "${targetFunctionName}" not found in source code`);
+  }
+
+  // Start with the original source code
+  let result = sourceCode;
+
+  // Remove unwanted functions in reverse order (by position) to avoid offset issues
+  functionsToRemove
+    .sort((a, b) => {
+      const aRange = a.range();
+      const bRange = b.range();
+      return bRange.start.index - aRange.start.index;
+    })
+    .forEach((funcNode) => {
+      const range = funcNode.range();
+      const before = result.substring(0, range.start.index);
+      const after = result.substring(range.end.index);
+      result = before + after;
+    });
+
+  return result;
+}
