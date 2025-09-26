@@ -10,6 +10,7 @@ src/**
 .wdio-vscode-service/**
 example-kappa-plugins/**
 test-workspace/**
+webview-decomp-permuter/**
 
 .yarnrc
 .yarn/install-state.gz
