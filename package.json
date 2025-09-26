@@ -314,7 +314,6 @@
     "useYarn": false
   },
   "scripts": {
-    "vscode:prepublish": "yarn run package",
     "build": "yarn format && yarn run check-types && yarn run lint && yarn run format:check && node esbuild.js && yarn workspace webview-decomp-permuter build",
     "package": "yarn run check-types && yarn run lint && yarn run format:check && node esbuild.js --production && yarn workspace webview-decomp-permuter build",
     "build:webview": "yarn workspace webview-decomp-permuter build",
