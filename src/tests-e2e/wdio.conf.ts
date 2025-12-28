@@ -4,6 +4,21 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// Allow running specific test files via command line argument
+// Example: yarn test example-kappa-plugins
+const testFilter = process.argv.find(
+  (arg) =>
+    !arg.startsWith('-') &&
+    !arg.includes('wdio') &&
+    !arg.includes('node') &&
+    !arg.includes('.ts') &&
+    !arg.includes('/') &&
+    arg !== 'run' &&
+    arg.length > 2,
+);
+
+const specs = testFilter ? [`./**/*${testFilter}*.spec.ts`] : ['./**/*.spec.ts'];
+
 export const config: WebdriverIO.Config = {
   //
   // ====================
@@ -28,7 +43,7 @@ export const config: WebdriverIO.Config = {
   // The path of the spec files will be resolved relative from the directory of
   // of the config file unless it's absolute.
   //
-  specs: ['./**/*.spec.ts'],
+  specs,
   // Patterns to exclude.
   exclude: [
     // 'path/to/excluded/files'

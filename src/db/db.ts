@@ -3,8 +3,9 @@ import { getRxStorageMemory } from 'rxdb/plugins/storage-memory';
 import { cosineSimilarity } from 'rxdb/plugins/vector';
 import * as vscode from 'vscode';
 
+import { DecompYamlPlatforms } from '@configurations/decomp-yaml';
 import { getVoyageApiKey } from '@configurations/workspace-configs';
-import { extractFunctionCallsFromAssembly } from '@utils/asm-utils';
+import { extractAsmFunctionBody, stripCommentaries } from '@utils/asm-utils';
 import { checkFileExists, getRelativePath, getWorkspaceUri } from '@utils/vscode-utils';
 
 import { VoyageApiResponse } from './voyage';
@@ -46,8 +47,6 @@ class Database {
 
   async #initializeDb(): Promise<KappaRxDatabase> {
     try {
-      const workspaceUri = getWorkspaceUri();
-
       const db: KappaRxDatabase = await createRxDatabase({
         name: 'kappa-db',
         storage: getRxStorageMemory(),
@@ -119,23 +118,12 @@ class Database {
         vectors: vectorSchema,
       });
 
-      // Check if the database dump file exists
-      const filePath = vscode.Uri.joinPath(workspaceUri, 'kappa-db.json');
-      const databaseDumpExists = await checkFileExists(filePath.fsPath);
-      if (!databaseDumpExists) {
+      // Load data from dump file if it exists
+      const loaded = await this.#loadDatabaseFromDump(db.collections);
+
+      if (!loaded) {
         console.log('No existing database dump found, starting with an empty database');
-        return db;
       }
-
-      // If the dump file exists, read it and populate the database
-      const content = await vscode.workspace.fs.readFile(filePath);
-      const dump = JSON.parse(new TextDecoder().decode(content));
-
-      const decompFunctionsCollection = db.collections.decompFunctions;
-      const vectorCollection = db.collections.vectors;
-
-      await decompFunctionsCollection.bulkUpsert(dump.decompFunctions);
-      await vectorCollection.bulkUpsert(dump.vectors);
 
       return db;
     } catch (error) {
@@ -145,7 +133,36 @@ class Database {
     }
   }
 
-  async embedAsm(progressReport: (currentBatch: number, totalBatches: number) => void): Promise<void> {
+  /**
+   * Load database collections from the dump file
+   * @returns true if data was loaded, false if dump file doesn't exist
+   */
+  async #loadDatabaseFromDump(collections: {
+    decompFunctions: RxCollection<DecompFunctionDoc>;
+    vectors: RxCollection<VectorDoc>;
+  }): Promise<boolean> {
+    const workspaceUri = getWorkspaceUri();
+    const filePath = vscode.Uri.joinPath(workspaceUri, 'kappa-db.json');
+    const databaseDumpExists = await checkFileExists(filePath.fsPath);
+
+    if (!databaseDumpExists) {
+      return false;
+    }
+
+    // If the dump file exists, read it and populate the database
+    const content = await vscode.workspace.fs.readFile(filePath);
+    const dump = JSON.parse(new TextDecoder().decode(content));
+
+    await collections.decompFunctions.bulkUpsert(dump.decompFunctions);
+    await collections.vectors.bulkUpsert(dump.vectors);
+
+    return true;
+  }
+
+  async embedAsm(
+    platform: DecompYamlPlatforms,
+    progressReport: (currentBatch: number, totalBatches: number) => void,
+  ): Promise<void> {
     const db = await this.#db;
 
     // Get all function IDs that already have vectors
@@ -165,7 +182,10 @@ class Database {
       progressReport(currentBatch, totalBatches);
 
       const batch = allAsmCodes.slice(i, i + batchSize);
-      const asmCodes = batch.map((doc) => doc.asmCode);
+      const asmCodes = batch.map(({ asmCode }) => {
+        const asmBody = extractAsmFunctionBody(platform, stripCommentaries(asmCode));
+        return asmBody;
+      });
       const embeddings = await this.#getEmbedding(asmCodes);
 
       const vectorDocs = batch.map((doc, index) => {
@@ -199,7 +219,11 @@ class Database {
     });
 
     if (!response.ok) {
-      throw new Error(`Voyage AI API error: ${response.status} ${response.statusText}`);
+      const errorMessage = await response.text();
+
+      throw new Error(
+        `Voyage AI API error: ${response.status} ${response.statusText}\nError message:\n${errorMessage}`,
+      );
     }
 
     const data = (await response.json()) as VoyageApiResponse;
@@ -215,12 +239,11 @@ class Database {
     asmCode: string;
     cModulePath?: string;
     asmModulePath: string;
+    callsFunctions?: string[];
   }): Promise<string> {
     const db = await this.#db;
 
     const id = `id:${func.name}`;
-
-    const callsFunctions = extractFunctionCallsFromAssembly(func.asmCode).map((call) => `id:${call}`);
 
     await db.collections.decompFunctions.upsert({
       id,
@@ -229,7 +252,7 @@ class Database {
       asmCode: func.asmCode,
       cModulePath: func.cModulePath && getRelativePath(func.cModulePath),
       asmModulePath: getRelativePath(func.asmModulePath),
-      callsFunctions,
+      callsFunctions: func.callsFunctions?.map((call) => `id:${call}`) || [],
     });
 
     return id;
@@ -368,6 +391,32 @@ class Database {
     const workspaceUri = getWorkspaceUri();
     const filePath = vscode.Uri.joinPath(workspaceUri, 'kappa-db.json');
     await vscode.workspace.fs.writeFile(filePath, Buffer.from(JSON.stringify(dump, null, 2), 'utf-8'));
+  }
+
+  /**
+   * Reload database from the dump file, clearing all in-memory collections
+   */
+  async reloadDatabase(): Promise<void> {
+    const db = await this.#db;
+
+    // Clear existing collections
+    const decompFunctionsCollection = db.collections.decompFunctions;
+    const vectorCollection = db.collections.vectors;
+
+    const allDecompFunctions = await decompFunctionsCollection.find().exec();
+    const allVectors = await vectorCollection.find().exec();
+
+    await Promise.all([...allDecompFunctions.map((doc) => doc.remove()), ...allVectors.map((doc) => doc.remove())]);
+
+    // Load data from dump file if it exists
+    const loaded = await this.#loadDatabaseFromDump(db.collections);
+
+    if (!loaded) {
+      console.log('No database dump found, collections cleared');
+      return;
+    }
+
+    console.log('Database reloaded from dump file');
   }
 
   getDatabase(): Promise<KappaRxDatabase> {
