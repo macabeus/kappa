@@ -28,7 +28,7 @@ Unit test files should be placed next to the source code they test with a `.spec
 - Tests: `src/utils/asm-utils.spec.ts`
 
 ```typescript
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { myFunction } from './my-module';
 
