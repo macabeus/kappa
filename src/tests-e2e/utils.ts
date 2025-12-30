@@ -7,6 +7,7 @@ export type RunOnVSCodeFn<T, D> = (
     copyFile: (sourceUri: VSCode.Uri, targetUri: VSCode.Uri) => Promise<void>;
     runTestsForCurrentKappaPlugin: () => Promise<string>;
     runIndexCodebase: () => Promise<void>;
+    reloadDatabase: () => Promise<void>;
     runCodeLenPromptBuilder: (codeLen: VSCode.CodeLens) => Promise<string>;
     workspaceUri: VSCode.Uri;
   },
@@ -107,6 +108,14 @@ export async function runOnVSCode<T, D>(fn: RunOnVSCodeFn<T, D>, ...args: T[]): 
         return runIndexCodebase;`,
       )();
 
+      // Reload database
+      const reloadDatabase = new Function(
+        `async function reloadDatabase() {
+          await vscode.commands.executeCommand('kappa.reloadDatabase');
+        };
+        return reloadDatabase;`,
+      )();
+
       // Run prompt builder
       const runCodeLenPromptBuilder = new Function(
         `async function runCodeLenPromptBuilder(codeLen) {
@@ -156,6 +165,7 @@ export async function runOnVSCode<T, D>(fn: RunOnVSCodeFn<T, D>, ...args: T[]): 
           openFile,
           runTestsForCurrentKappaPlugin,
           runIndexCodebase,
+          reloadDatabase,
           runCodeLenPromptBuilder,
           workspaceUri,
         },

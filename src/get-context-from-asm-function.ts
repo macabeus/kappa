@@ -1,9 +1,8 @@
 import { SgNode } from '@ast-grep/napi';
-import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { DecompFunction, database } from '@db/db';
-import { extractAssemblyFunction } from '@utils/asm-utils';
+import { objdiff } from '@objdiff/objdiff';
 import { Searcher, getFirstParentWithKind, searchCodebase } from '@utils/ast-grep-utils';
 import type { CtxDecompYaml } from '~/context';
 
@@ -75,43 +74,42 @@ export async function getFuncContext(func: DecompFunction): Promise<DecompFuncCo
   return result;
 }
 
-export async function findOriginalAssemblyInBuildFolder({
+export async function getAsmFunctionFromBuildFolder({
   ctx,
-  name,
-  filePath,
+  functionName,
+  moduleName,
 }: {
   ctx: CtxDecompYaml;
-  name: string;
-  filePath: string;
+  functionName: string;
+  moduleName: string;
 }): Promise<{ asmCode: string; asmModulePath: string } | null> {
-  const cModuleName = path.basename(filePath, path.extname(filePath));
+  const object = await vscode.workspace.findFiles(`${ctx.decompYaml.tools.kappa.buildFolder}/**/${moduleName}.{o,obj}`);
 
-  const assemblyModules = await vscode.workspace.findFiles(
-    `${ctx.decompYaml.tools.kappa.buildFolder}/**/${cModuleName}.{s,S,asm}`,
-  );
-
-  if (assemblyModules.length === 0) {
-    console.warn(`Assembly file not found for C module "${cModuleName}" in the build folder`);
+  if (object.length === 0) {
+    console.warn(`Object file not found for C module "${moduleName}" in the build folder`);
     return null;
   }
 
-  if (assemblyModules.length > 1) {
-    console.warn(`Multiple assembly files found for C module "${cModuleName}" in the build folder`);
+  if (object.length > 1) {
+    console.warn(`Multiple object files found for C module "${moduleName}" in the build folder`);
     return null;
   }
 
-  const asmModulePath = assemblyModules[0].fsPath;
-  const assemblyFileBuffer = await vscode.workspace.fs.readFile(vscode.Uri.file(asmModulePath));
-  const assemblyFileContent = new TextDecoder().decode(assemblyFileBuffer);
+  const objectPath = object[0].fsPath;
 
-  const asmCode = extractAssemblyFunction(ctx.decompYaml.platform, assemblyFileContent, name);
+  try {
+    const asmCode = await objdiff.getAsmFunctionFromObjectFile(ctx, objectPath, functionName);
 
-  if (!asmCode) {
-    console.warn(`Assembly function "${name}" not found in the assembly file "${asmModulePath}"`);
+    if (!asmCode) {
+      console.warn(`Function "${functionName}" not found in object file "${objectPath}"`);
+      return null;
+    }
+
+    return { asmCode, asmModulePath: objectPath };
+  } catch (error) {
+    console.error(`Error extracting assembly from object file "${objectPath}":`, error);
     return null;
   }
-
-  return { asmCode, asmModulePath };
 }
 
 type CodebaseContext = {

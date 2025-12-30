@@ -28,6 +28,7 @@ const decompYamlSchema = z.object({
   tools: z.object({
     kappa: z.object({
       buildFolder: z.string(),
+      nonMatchingAsmFolder: z.string(),
     }),
     decompme: z
       .object({
@@ -118,7 +119,7 @@ export async function ensureDecompYamlDefinesTool({
 
 export async function createDecompYaml(currentConfig: DecompYaml | null = null): Promise<DecompYaml | null> {
   const buildFolder = await showFolderPicker({
-    title: 'Select the build folder (where the assembly files are outputted from the source code)',
+    title: 'Select the build folder (where the object files are outputted)',
     defaultValue: currentConfig?.tools?.kappa?.buildFolder,
   });
 
@@ -127,11 +128,15 @@ export async function createDecompYaml(currentConfig: DecompYaml | null = null):
     return null;
   }
 
-  // TODO: It should validate if it's a valid build folder. The validation should check:
-  // - If the folder exists
-  // - If it contains assembly files (e.g., .s or .asm files)
-  // - If a C file maps directly to an asm file
-  // This validation is relevant to ensure that the function `findOriginalAssemblyInBuildFolder` will work correctly.
+  const nonMatchingAsmFolder = await showFolderPicker({
+    title: 'Select the folder which the non-matching assembly files (.s) are kept',
+    defaultValue: currentConfig?.tools?.kappa?.nonMatchingAsmFolder,
+  });
+
+  if (!nonMatchingAsmFolder) {
+    vscode.window.showErrorMessage('No non-matching assembly folder selected. Config file not created.');
+    return null;
+  }
 
   const platform = await showPicker({
     title: 'Select Platform',
@@ -278,6 +283,7 @@ export async function createDecompYaml(currentConfig: DecompYaml | null = null):
     tools: {
       kappa: {
         buildFolder: getRelativePath(buildFolder),
+        nonMatchingAsmFolder: getRelativePath(nonMatchingAsmFolder),
       },
       ...(decompmeTool ? { decompme: decompmeTool } : {}),
       ...(m2cTool ? { m2c: m2cTool } : {}),

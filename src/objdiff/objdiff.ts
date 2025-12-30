@@ -3,6 +3,7 @@ import type * as ObjdiffWasm from 'objdiff-wasm';
 import path from 'path';
 import * as vscode from 'vscode';
 
+import { getInlineCommentPrefix } from '@utils/asm-utils';
 import type { CtxDecompYaml } from '~/context';
 
 type ObjdiffWasm = typeof ObjdiffWasm;
@@ -158,16 +159,27 @@ class Objdiff {
     return parsedObject;
   }
 
-  async getSymbolsName(ctx: CtxDecompYaml, obj: ParsedObject): Promise<string[]> {
+  async #runDiff(ctx: CtxDecompYaml, left: ObjdiffWasm.diff.Object, right?: ObjdiffWasm.diff.Object) {
     const objdiff = await this.#objdiff;
+
     const diffConfig = await this.#getDiffConfig(ctx);
 
-    // Run diff to get ObjectDiff
-    const diffResult = objdiff.diff.runDiff(obj, undefined, diffConfig, {
+    const mappingConfig = {
       mappings: [],
       selectingLeft: undefined,
       selectingRight: undefined,
-    });
+    };
+
+    const diff = objdiff.diff.runDiff(left, right, diffConfig, mappingConfig);
+
+    return diff;
+  }
+
+  async getSymbolsName(ctx: CtxDecompYaml, obj: ParsedObject): Promise<string[]> {
+    const objdiff = await this.#objdiff;
+
+    // Run diff to get ObjectDiff
+    const diffResult = await this.#runDiff(ctx, obj);
 
     if (!diffResult.left) {
       return [];
@@ -196,6 +208,44 @@ class Objdiff {
     return symbolNames;
   }
 
+  async getAsmFunctionFromObjectFile(
+    ctx: CtxDecompYaml,
+    objectPath: string,
+    functionName: string,
+  ): Promise<string | null> {
+    try {
+      const diffConfig = await this.#getDiffConfig(ctx);
+
+      // Parse the object file
+      const parsedObject = await this.parseObjectFile(ctx, objectPath);
+
+      // Run diff to get ObjectDiff
+      const diffResult = await this.#runDiff(ctx, parsedObject);
+      if (!diffResult.left) {
+        return null;
+      }
+
+      // Find the symbol
+      const symbol = diffResult.left.findSymbol(functionName, undefined);
+      if (!symbol) {
+        return null;
+      }
+
+      // Get assembly instructions for the symbol
+      const rawAsm = await this.#getAssemblyFromSymbol(ctx, diffResult.left, functionName, diffConfig);
+
+      const cleanedAsm = rawAsm
+        .split('\n')
+        .map((line) => line.replace(/^\s*[\s\w\d]+:\s*/, ''))
+        .join('\n');
+
+      return cleanedAsm;
+    } catch (error) {
+      console.error(`Error getting assembly from object file "${objectPath}" for function "${functionName}":`, error);
+      return null;
+    }
+  }
+
   async compareObjectFiles(
     ctx: CtxDecompYaml,
     currentObjectPath: string,
@@ -204,18 +254,10 @@ class Objdiff {
     targetObject: ParsedObject,
     functionName: string,
   ): Promise<string> {
-    const objdiff = await this.#objdiff;
     const diffConfig = await this.#getDiffConfig(ctx);
 
-    // Create mapping configuration
-    const mappingConfig = {
-      mappings: [],
-      selectingLeft: undefined,
-      selectingRight: undefined,
-    };
-
     // Run the diff
-    const diffResult = objdiff.diff.runDiff(currentObject, targetObject, diffConfig, mappingConfig);
+    const diffResult = await this.#runDiff(ctx, currentObject, targetObject);
 
     if (!diffResult.left) {
       return 'Failed to compare object files. No data for the current object file.';
@@ -257,8 +299,8 @@ class Objdiff {
     }
 
     const [leftAssembly, rightAssembly] = await Promise.all([
-      this.#getAssemblyFromSymbol(diffResult.left, functionName, diffConfig),
-      this.#getAssemblyFromSymbol(diffResult.right, functionName, diffConfig),
+      this.#getAssemblyFromSymbol(ctx, diffResult.left, functionName, diffConfig),
+      this.#getAssemblyFromSymbol(ctx, diffResult.right, functionName, diffConfig),
     ]);
 
     content += `## Current Object Assembly\n\n`;
@@ -275,6 +317,7 @@ class Objdiff {
     content += `## Detailed Differences\n\n`;
 
     const { matchingCount, differenceCount, differences } = await this.#getDifferencesFromObjectFiles(
+      ctx,
       diffResult.left,
       diffResult.right,
       functionName,
@@ -306,6 +349,7 @@ class Objdiff {
         }
 
         const { differenceCount } = await this.#getDifferencesFromObjectFiles(
+          ctx,
           diffResult.left,
           diffResult.right,
           symbol,
@@ -332,6 +376,7 @@ class Objdiff {
   }
 
   async #getDifferencesFromObjectFiles(
+    ctx: CtxDecompYaml,
     diffResultLeft: ObjectDiff,
     diffResultRight: ObjectDiff,
     functionName: string,
@@ -354,13 +399,13 @@ class Objdiff {
       // Get left instruction
       if (leftInstructionRow) {
         leftDiffKind = leftInstructionRow.diffKind;
-        leftInstruction = this.#intructionDiffRowToString(leftInstructionRow);
+        leftInstruction = this.#intructionDiffRowToString(ctx, leftInstructionRow);
       }
 
       // Get right instruction
       if (rightInstructionRow) {
         rightDiffKind = rightInstructionRow.diffKind;
-        rightInstruction = this.#intructionDiffRowToString(rightInstructionRow);
+        rightInstruction = this.#intructionDiffRowToString(ctx, rightInstructionRow);
       }
 
       // Determine if this row has differences
@@ -427,27 +472,61 @@ class Objdiff {
   /**
    * Get assembly instructions for a given symbol from an object diff
    */
-  async #getAssemblyFromSymbol(objDiff: ObjectDiff, symbolName: string, diffConfig: DiffConfig): Promise<string> {
+  async #getAssemblyFromSymbol(
+    ctx: CtxDecompYaml,
+    objDiff: ObjectDiff,
+    symbolName: string,
+    diffConfig: DiffConfig,
+  ): Promise<string> {
     const instructions: string[] = [];
     for await (const [instructionRow] of this.#iterateSymbolRows([objDiff], symbolName, diffConfig)) {
-      const lineText = this.#intructionDiffRowToString(instructionRow);
+      const lineText = this.#intructionDiffRowToString(ctx, instructionRow);
       if (lineText.trim()) {
         instructions.push(lineText);
       }
     }
 
-    return instructions.join('\n');
+    let code = instructions.join('\n');
+
+    // Replace `REFERENCE_.L...` markers
+    const inlineCommentPrefix = getInlineCommentPrefix(ctx.decompYaml.platform);
+
+    code = code.replace(/# REFERENCE_\.L(.+)/g, (match, p1) => {
+      const referencedLine = instructions.find((line) => line.includes(`${p1}:`));
+
+      if (referencedLine) {
+        const referencedValue = referencedLine.split(' ').at(-1) ?? '';
+        return `${inlineCommentPrefix} =${referencedValue}`;
+      }
+
+      return '';
+    });
+
+    // Return the final assembly code
+    return code;
   }
 
-  #intructionDiffRowToString(instructionRow: ObjdiffWasm.display.InstructionDiffRow): string {
+  #intructionDiffRowToString(ctx: CtxDecompYaml, instructionRow: ObjdiffWasm.display.InstructionDiffRow): string {
     let lineText = '';
+    let address = '';
 
     for (const segment of instructionRow.segments) {
       const text = segment.text;
 
       switch (text.tag) {
         case 'basic':
-          lineText += text.val;
+          if (text.val === ' ~>') {
+            // do nothing
+          } else if (text.val === ' (->') {
+            lineText += ` # REFERENCE_`;
+          } else if (text.val === ' ~> ') {
+            lineText += `.L${address}:\n`;
+          } else if (text.val === ')' && lineText.includes(' # REFERENCE_')) {
+            // do nothing
+          } else {
+            lineText += text.val;
+          }
+
           break;
 
         case 'line':
@@ -456,10 +535,11 @@ class Objdiff {
 
         case 'address':
           lineText += text.val.toString(16) + ':';
+          address = text.val.toString(16);
           break;
 
         case 'opcode':
-          lineText += text.val.mnemonic;
+          lineText += `${text.val.mnemonic} `;
           break;
 
         case 'signed':
@@ -475,11 +555,15 @@ class Objdiff {
           break;
 
         case 'opaque':
-          lineText += text.val;
+          if (ctx.decompYaml.platform === 'gba') {
+            lineText += text.val;
+          } else {
+            lineText += `$${text.val}`;
+          }
           break;
 
         case 'branch-dest':
-          lineText += text.val.toString(16);
+          lineText += `.L${text.val.toString(16)}`;
           break;
 
         case 'symbol':

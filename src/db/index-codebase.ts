@@ -2,10 +2,14 @@ import path from 'path';
 import * as vscode from 'vscode';
 
 import { getVoyageApiKey } from '@configurations/workspace-configs';
-import { listAssemblyFunctions } from '@utils/asm-utils';
+import {
+  countBodyLinesFromAsmFunction,
+  extractFunctionCallsFromAssembly,
+  listFunctionsFromAsmModule,
+} from '@utils/asm-utils';
 import { Searcher, registerClangLanguage, searchCodebase } from '@utils/ast-grep-utils';
 import type { CtxDecompYaml } from '~/context';
-import { findOriginalAssemblyInBuildFolder } from '~/get-context-from-asm-function';
+import { getAsmFunctionFromBuildFolder } from '~/get-context-from-asm-function';
 
 import { database } from './db';
 
@@ -31,7 +35,7 @@ export async function indexCodebase(ctx: CtxDecompYaml) {
       title: 'Indexing the codebase',
     },
     async (progress) => {
-      // 1. Add decompiled functions from C files
+      // 1. Add matched functions
       const codebaseFiles = await vscode.workspace.findFiles('**/*.{c,h}', 'tools/**');
 
       const funcDefinitionMatcher = {
@@ -42,7 +46,7 @@ export async function indexCodebase(ctx: CtxDecompYaml) {
       const funcDefinitionSearcher: Searcher = {
         matcher: funcDefinitionMatcher,
         async handlerEach(file, definition) {
-          const name = definition
+          const functionName = definition
             .find({
               rule: {
                 kind: 'identifier',
@@ -53,15 +57,15 @@ export async function indexCodebase(ctx: CtxDecompYaml) {
             })
             ?.text();
 
-          if (!name) {
+          if (!functionName) {
             console.warn(`Skipping a function from "${file.fsPath}" because its name was not found`);
             return;
           }
 
-          const findResult = await findOriginalAssemblyInBuildFolder({
+          const findResult = await getAsmFunctionFromBuildFolder({
             ctx,
-            name,
-            filePath: file.fsPath,
+            functionName,
+            moduleName: path.basename(file.fsPath, path.extname(file.fsPath)),
           });
 
           if (!findResult) {
@@ -70,37 +74,52 @@ export async function indexCodebase(ctx: CtxDecompYaml) {
 
           const content = definition.text();
 
+          const callsFunctions = extractFunctionCallsFromAssembly(ctx.decompYaml.platform, findResult.asmCode);
+
           await database.addFunction({
-            name: name,
+            name: functionName,
             cCode: content,
             cModulePath: file.fsPath,
             asmCode: findResult.asmCode,
             asmModulePath: findResult.asmModulePath,
+            callsFunctions,
           });
 
           progress.report({
             increment: 0,
-            message: `C function "${name}" indexed...`,
+            message: `C function "${functionName}" indexed...`,
           });
         },
       };
 
       await searchCodebase(codebaseFiles, [funcDefinitionSearcher]);
 
-      // 2. Add assembly functions from .s files
+      // 2. Add non-matched functions
       progress.report({ increment: 25 });
 
-      const asmFiles = await vscode.workspace.findFiles('asm/**/*.{s,S,asm}', 'tools/**');
+      const asmFiles = await vscode.workspace.findFiles(
+        `${ctx.decompYaml.tools.kappa.nonMatchingAsmFolder}/**/*.{s,S,asm}`,
+      );
       for (const asmFile of asmFiles) {
-        const document = await vscode.workspace.openTextDocument(asmFile);
-        const content = document.getText();
-        const functions = listAssemblyFunctions(content);
+        const asmDocument = await vscode.workspace.openTextDocument(asmFile);
+        const asmModule = asmDocument.getText();
+        const functions = listFunctionsFromAsmModule(ctx.decompYaml.platform, asmModule);
 
         for (const func of functions) {
+          const asmCode = func.code;
+
+          const countLines = countBodyLinesFromAsmFunction(ctx.decompYaml.platform, asmCode);
+          if (countLines === 0) {
+            continue;
+          }
+
+          const callsFunctions = extractFunctionCallsFromAssembly(ctx.decompYaml.platform, asmCode);
+
           await database.addFunction({
             name: func.name,
-            asmCode: func.code,
+            asmCode,
             asmModulePath: asmFile.fsPath,
+            callsFunctions,
           });
         }
 
@@ -115,7 +134,7 @@ export async function indexCodebase(ctx: CtxDecompYaml) {
       progress.report({ increment: 25 });
 
       if (getVoyageApiKey()) {
-        await database.embedAsm((currentBatch, totalBatches) => {
+        await database.embedAsm(ctx.decompYaml.platform, (currentBatch, totalBatches) => {
           progress.report({
             increment: 0,
             message: `Embedding assembly functions... (${currentBatch}/${totalBatches})`,

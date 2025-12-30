@@ -99,6 +99,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
     codeLensProvider.refresh();
   });
 
+  vscode.commands.registerCommand('kappa.reloadDatabase', async () => {
+    await database.reloadDatabase();
+    vscode.window.showInformationMessage('Database reloaded successfully');
+  });
+
   vscode.commands.registerCommand('kappa.runPromptBuilder', async (functionId?: string) => {
     registerClangLanguage();
 
