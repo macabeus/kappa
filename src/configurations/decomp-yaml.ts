@@ -151,14 +151,12 @@ export function getDecompYamlPaths(ctx: CtxDecompYaml): {
   const buildFolders: string[] = [];
   const nonMatchingAsmFolders: string[] = [];
 
-  if (ctx.decompYaml.versions) {
-    for (const version of ctx.decompYaml.versions) {
-      if (version.paths?.build_dir) {
-        buildFolders.push(version.paths.build_dir);
-      }
-      if (version.paths?.nonmatchings) {
-        nonMatchingAsmFolders.push(version.paths.nonmatchings);
-      }
+  for (const version of ctx.decompYaml.versions ?? []) {
+    if (version.paths?.build_dir) {
+      buildFolders.push(version.paths.build_dir);
+    }
+    if (version.paths?.nonmatchings) {
+      nonMatchingAsmFolders.push(version.paths.nonmatchings);
     }
   }
 
