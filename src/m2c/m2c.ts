@@ -79,10 +79,10 @@ export async function decompileWithM2c(
       m2cTarget,
       '--function',
       decompFunction.name,
-      ...(ctx.decompYaml.tools.m2c?.otherFlags ? ctx.decompYaml.tools.m2c.otherFlags.split(' ') : []),
+      ...(ctx.decompYaml.tools?.m2c?.otherFlags ? ctx.decompYaml.tools.m2c.otherFlags.split(' ') : []),
     ];
 
-    if (ctx.decompYaml.tools.m2c?.contextPath) {
+    if (ctx.decompYaml.tools?.m2c?.contextPath) {
       const contextFullPath = path.join(workspaceUri.fsPath, ctx.decompYaml.tools.m2c.contextPath);
       args.push('--context', contextFullPath);
     }
@@ -115,8 +115,8 @@ async function handleM2cError(
     );
 
     if (answer === 'Yes') {
-      ctx.decompYaml.tools.m2c = {
-        ...ctx.decompYaml.tools.m2c,
+      ctx.decompYaml.tools!.m2c = {
+        ...ctx.decompYaml.tools?.m2c,
         contextPath: null,
       };
 

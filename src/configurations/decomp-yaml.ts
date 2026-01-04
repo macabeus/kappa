@@ -66,7 +66,8 @@ const decompYamlSchema = z
           })
           .optional(),
       })
-      .loose(),
+      .loose()
+      .optional(),
   })
   .loose();
 
@@ -138,7 +139,7 @@ export async function ensureDecompYamlDefinesTool<T extends keyof DecompYaml['to
 
     ctx.decompYaml = newConfig;
 
-    return ctx.decompYaml.tools[tool];
+    return newConfig.tools[tool];
   }
 
   throw new Error(`Action canceled. The configuration for the tool "${tool}" is required`);
@@ -239,7 +240,7 @@ async function configureVersions(currentConfig: DecompYaml | null = null): Promi
 async function configureDecompMeTool(
   platform: DecompYamlPlatforms,
   currentConfig: DecompYaml | null = null,
-): Promise<DecompYaml['tools']['decompme']> {
+): Promise<NonNullable<DecompYaml['tools']>['decompme']> {
   const cFiles = await vscode.workspace.findFiles('**/*.{c,cpp}', 'tools/**');
   const contextPath = await showFilePicker({
     title: 'Enter the path to your context file for decomp.me.',
@@ -281,7 +282,7 @@ async function configureDecompMeTool(
 async function configureM2cTool(
   currentConfig: DecompYaml | null = null,
   decompmeTool?: NonNullable<DecompYaml['tools']>['decompme'],
-): Promise<DecompYaml['tools']['m2c']> {
+): Promise<NonNullable<DecompYaml['tools']>['m2c']> {
   const hasM2cPath = Boolean(getM2cPath());
   if (!hasM2cPath) {
     const m2cPathUpdated = await showInputBoxForSettingM2cPath();
