@@ -36,7 +36,6 @@ export class AssemblyCodeLensProvider implements vscode.CodeLensProvider {
           'No yet',
           'Do not ask again',
         );
-        this.#isDisplayingInformationMessage = false;
 
         if (answer === 'Yes') {
           await vscode.commands.executeCommand('kappa.indexCodebase');
@@ -48,6 +47,8 @@ export class AssemblyCodeLensProvider implements vscode.CodeLensProvider {
             'This message will not be shown again. If you want to index, run the command "Index the codebase"',
           );
         }
+
+        this.#isDisplayingInformationMessage = false;
 
         return [];
       }
