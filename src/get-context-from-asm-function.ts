@@ -1,6 +1,7 @@
 import { SgNode } from '@ast-grep/napi';
 import * as vscode from 'vscode';
 
+import { getDecompYamlPaths } from '@configurations/decomp-yaml';
 import { DecompFunction, database } from '@db/db';
 import { objdiff } from '@objdiff/objdiff';
 import { Searcher, getFirstParentWithKind, searchCodebase } from '@utils/ast-grep-utils';
@@ -83,7 +84,11 @@ export async function getAsmFunctionFromBuildFolder({
   functionName: string;
   moduleName: string;
 }): Promise<{ asmCode: string; asmModulePath: string } | null> {
-  const object = await vscode.workspace.findFiles(`${ctx.decompYaml.tools.kappa.buildFolder}/**/${moduleName}.{o,obj}`);
+  const { buildFolders } = getDecompYamlPaths(ctx);
+
+  const objectPromises = buildFolders.map((folder) => vscode.workspace.findFiles(`${folder}/**/${moduleName}.{o,obj}`));
+  const objectArrays = await Promise.all(objectPromises);
+  const object = objectArrays.flat();
 
   if (object.length === 0) {
     console.warn(`Object file not found for C module "${moduleName}" in the build folder`);

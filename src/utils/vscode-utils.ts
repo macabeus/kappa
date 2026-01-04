@@ -205,42 +205,142 @@ export async function showFolderPicker({
   basePath,
   title,
   placeholder,
-  defaultValue,
   allowCustomPath = false,
 }: {
   basePath?: string;
   title?: string;
   placeholder?: string;
-  defaultValue?: string;
   allowCustomPath?: boolean;
 } = {}): Promise<string | null> {
   const workspaceRoot = getWorkspaceUri().fsPath;
-  const searchPath = basePath ? resolveAbsolutePath(basePath) : workspaceRoot;
+  const startPath = basePath ? resolveAbsolutePath(basePath) : workspaceRoot;
+  let currentPath = startPath;
 
-  // Get all folders in the specified path
-  const entries = await vscode.workspace.fs.readDirectory(vscode.Uri.file(searchPath));
-  const folders = entries
-    .filter(([name, type]) => type === vscode.FileType.Directory && !name.startsWith('.'))
-    .map(([name]) => {
-      const folderPath = vscode.Uri.joinPath(vscode.Uri.file(searchPath), name).fsPath;
-      return {
-        label: getRelativePath(folderPath),
-        value: folderPath,
-      };
-    })
-    .sort((a, b) => a.label.localeCompare(b.label));
+  while (true) {
+    // Get all folders in the current path
+    const entries = await vscode.workspace.fs.readDirectory(vscode.Uri.file(currentPath));
+    const subfolders = entries
+      .filter(([name, type]) => type === vscode.FileType.Directory && !name.startsWith('.'))
+      .map(([name]) => {
+        const folderPath = vscode.Uri.joinPath(vscode.Uri.file(currentPath), name).fsPath;
+        return {
+          label: name,
+          value: folderPath,
+        };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label));
 
-  const result = await showPicker({
-    items: folders,
-    title,
-    placeholder,
-    defaultValue,
-    allowCustomValue: allowCustomPath,
-  });
+    // Build the items list with special options
+    const items: Array<{ label: string; value: string; description?: string; isSpecial?: boolean }> = [];
 
-  if (!result) {
-    return null;
+    // Add "Select this folder" option
+    items.push({
+      label: '✓ Select this folder',
+      value: currentPath,
+      description: getRelativePath(currentPath),
+      isSpecial: true,
+    });
+
+    // Add ".." option if not at the start path
+    if (currentPath !== startPath) {
+      const parentPath = vscode.Uri.file(currentPath).with({ path: path.dirname(currentPath) }).fsPath;
+      items.push({
+        label: '..',
+        value: parentPath,
+        description: '← Go back',
+        isSpecial: true,
+      });
+    }
+
+    // Add subfolders with arrow indicator
+    items.push(
+      ...subfolders.map((folder) => ({
+        ...folder,
+        description: subfolders.length > 0 ? '→ Browse' : undefined,
+      })),
+    );
+
+    const quickPickItems: vscode.QuickPickItem[] = items.map((item) => ({
+      label: item.label,
+      description: item.description,
+    }));
+
+    const quickPick = vscode.window.createQuickPick();
+    quickPick.title = title ?? 'Select Folder';
+    quickPick.placeholder = placeholder ?? `Current: ${getRelativePath(currentPath)}`;
+    quickPick.items = quickPickItems;
+
+    const result = await new Promise<{ path: string; isCurrentFolder: boolean } | null>((resolve) => {
+      quickPick.onDidChangeValue((value) => {
+        // Allow user to type custom paths
+        if (allowCustomPath && value && !quickPickItems.some((item) => item.label === value)) {
+          quickPick.items = [{ label: value, description: 'Custom path' }, ...quickPickItems];
+        } else {
+          quickPick.items = quickPickItems;
+        }
+      });
+
+      quickPick.onDidAccept(() => {
+        const selection = quickPick.selectedItems[0];
+        if (selection.label === '✓ Select this folder') {
+          resolve({ path: currentPath, isCurrentFolder: true });
+        } else if (selection.label === '..') {
+          const matchedItem = items.find((item) => item.label === '..');
+          if (matchedItem) {
+            resolve({ path: matchedItem.value, isCurrentFolder: false });
+          } else {
+            resolve(null);
+          }
+        } else if (selection.description === 'Custom path') {
+          resolve({ path: selection.label, isCurrentFolder: true });
+        } else {
+          const matchedItem = items.find((item) => item.label === selection.label);
+          const selectedPath = matchedItem?.value ?? selection?.label ?? null;
+          if (selectedPath) {
+            resolve({ path: selectedPath, isCurrentFolder: false });
+          } else {
+            resolve(null);
+          }
+        }
+        quickPick.dispose();
+      });
+
+      quickPick.onDidHide(() => {
+        resolve(null);
+        quickPick.dispose();
+      });
+
+      quickPick.show();
+    });
+
+    if (!result) {
+      // User cancelled
+      return null;
+    }
+
+    // If user explicitly selected current folder or entered custom path, return it
+    if (result.isCurrentFolder) {
+      return result.path;
+    }
+
+    // User selected a subfolder, check if it has subfolders to continue drilling
+    currentPath = result.path;
+
+    try {
+      const newEntries = await vscode.workspace.fs.readDirectory(vscode.Uri.file(currentPath));
+      const hasSubfolders = newEntries.some(
+        ([name, type]) => type === vscode.FileType.Directory && !name.startsWith('.'),
+      );
+
+      // If no subfolders, return this path automatically
+      if (!hasSubfolders) {
+        return currentPath;
+      }
+
+      // Otherwise, continue the loop to show subfolders
+    } catch {
+      // If we can't read the directory, return the path anyway
+      return currentPath;
+    }
   }
-
-  return result;
 }

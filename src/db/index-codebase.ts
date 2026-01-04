@@ -1,6 +1,7 @@
 import path from 'path';
 import * as vscode from 'vscode';
 
+import { createDecompYaml, getDecompYamlPaths } from '@configurations/decomp-yaml';
 import { getVoyageApiKey } from '@configurations/workspace-configs';
 import {
   countBodyLinesFromAsmFunction,
@@ -22,6 +23,21 @@ export function isIndexingCodebase(): boolean {
 export async function indexCodebase(ctx: CtxDecompYaml) {
   if (isIndexing) {
     vscode.window.showWarningMessage('Codebase is already being indexed. Please wait until it completes.');
+    return;
+  }
+
+  const { buildFolders, nonMatchingAsmFolders } = getDecompYamlPaths(ctx);
+  if (buildFolders.length === 0 || nonMatchingAsmFolders.length === 0) {
+    const answer = await vscode.window.showInformationMessage(
+      'Missing to set build or non-matching assembly folders. Do you want to configure it now?',
+      'Yes',
+      'No',
+    );
+
+    if (answer === 'Yes') {
+      await createDecompYaml(ctx.decompYaml);
+    }
+
     return;
   }
 
@@ -97,9 +113,12 @@ export async function indexCodebase(ctx: CtxDecompYaml) {
       // 2. Add non-matched functions
       progress.report({ increment: 25 });
 
-      const asmFiles = await vscode.workspace.findFiles(
-        `${ctx.decompYaml.tools.kappa.nonMatchingAsmFolder}/**/*.{s,S,asm}`,
+      const asmFilesPromises = nonMatchingAsmFolders.map((folder) =>
+        vscode.workspace.findFiles(`${folder}/**/*.{s,S,asm}`),
       );
+      const asmFilesArrays = await Promise.all(asmFilesPromises);
+      const asmFiles = asmFilesArrays.flat();
+
       for (const asmFile of asmFiles) {
         const asmDocument = await vscode.workspace.openTextDocument(asmFile);
         const asmModule = asmDocument.getText();

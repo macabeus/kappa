@@ -1,9 +1,10 @@
 import { parse } from '@ast-grep/napi';
 import * as vscode from 'vscode';
 
-import { DecompYamlPlatforms, loadDecompYaml } from '@configurations/decomp-yaml';
+import { DecompYamlPlatforms, ensureDecompYamlDefinesTool } from '@configurations/decomp-yaml';
 import { DecompFunction, database } from '@db/db';
 import { getWorkspaceUri } from '@utils/vscode-utils';
+import { CtxDecompYaml } from '~/context';
 import { getFuncContext } from '~/get-context-from-asm-function';
 
 // Platform mapping from decomp.yaml to decomp.me
@@ -83,22 +84,11 @@ async function getInitialSourceCode(context: string, decompFunction: DecompFunct
 /**
  * Create a new scratch on decomp.me for the given function
  */
-export async function createDecompMeScratch(functionId: string): Promise<void> {
+export async function createDecompMeScratch(ctx: CtxDecompYaml, functionId: string): Promise<void> {
   try {
     const workspaceUri = getWorkspaceUri();
 
-    // Load decomp.yaml
-    const decompYaml = await loadDecompYaml();
-
-    if (!decompYaml) {
-      vscode.window.showErrorMessage('decomp.yaml configuration not found. Please create it first.');
-      return;
-    }
-
-    if (!decompYaml.tools?.decompme) {
-      vscode.window.showErrorMessage('decompme tool is not configured. Please configure it first.');
-      return;
-    }
+    const decompmeTool = await ensureDecompYamlDefinesTool({ ctx, tool: 'decompme' });
 
     // Get function from database
     const decompFunction = await database.getFunctionById(functionId);
@@ -108,23 +98,22 @@ export async function createDecompMeScratch(functionId: string): Promise<void> {
     }
 
     // Map platform
-    const decompMePlatform = platformMapping[decompYaml.platform];
+    const decompMePlatform = platformMapping[ctx.decompYaml.platform];
     if (!decompMePlatform) {
-      vscode.window.showErrorMessage(`Platform "${decompYaml.platform}" is not supported by decomp.me integration.`);
+      vscode.window.showErrorMessage(
+        `Platform "${ctx.decompYaml.platform}" is not supported by decomp.me integration.`,
+      );
       return;
     }
 
-    // Get compiler
-    const compiler = decompYaml.tools.decompme.compiler;
-
     // Get context
-    const contextPath = vscode.Uri.joinPath(workspaceUri, decompYaml.tools.decompme.contextPath);
+    const contextPath = vscode.Uri.joinPath(workspaceUri, decompmeTool.contextPath);
     let context: string;
     try {
       const contextContent = await vscode.workspace.fs.readFile(contextPath);
       context = new TextDecoder().decode(contextContent);
     } catch {
-      vscode.window.showWarningMessage(`Could not read context file: ${decompYaml.tools.decompme.contextPath}`);
+      vscode.window.showWarningMessage(`Could not read context file: ${decompmeTool.contextPath}`);
       return;
     }
 
@@ -136,14 +125,14 @@ export async function createDecompMeScratch(functionId: string): Promise<void> {
       target_asm: decompFunction.asmCode,
       context,
       platform: decompMePlatform,
-      compiler: compiler,
+      compiler: decompmeTool.compiler,
       diff_label: decompFunction.name,
       source_code: initialSourceCode,
     };
 
     // Add preset if configured
-    if (decompYaml.tools.decompme.preset) {
-      payload.preset = decompYaml.tools.decompme.preset;
+    if (decompmeTool.preset) {
+      payload.preset = decompmeTool.preset;
     }
 
     // Show progress while creating scratch

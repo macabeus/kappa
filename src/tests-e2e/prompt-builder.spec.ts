@@ -280,12 +280,15 @@ pop {r7, pc}`,
       path.join(ctx.workspaceDir, 'decomp.yaml'),
       YAML.stringify({
         platform: 'gba',
-        tools: {
-          kappa: {
-            buildFolder: 'build',
-            nonMatchingAsmFolder: 'asm',
+        versions: [
+          {
+            name: 'usa',
+            paths: {
+              build_dir: 'build',
+              nonmatchings: 'asm',
+            },
           },
-        },
+        ],
       } as DecompYaml),
     );
 
