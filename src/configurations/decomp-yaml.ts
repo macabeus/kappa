@@ -52,12 +52,6 @@ const decompYamlSchema = z
       .optional(),
     tools: z
       .object({
-        kappa: z
-          .object({
-            buildFolder: z.string(),
-            nonMatchingAsmFolder: z.string(),
-          })
-          .optional(),
         decompme: z
           .object({
             contextPath: z.string(),
@@ -150,31 +144,98 @@ export async function ensureDecompYamlDefinesTool<T extends keyof DecompYaml['to
   throw new Error(`Action canceled. The configuration for the tool "${tool}" is required`);
 }
 
-async function configureKappaTool(currentConfig: DecompYaml | null = null): Promise<DecompYaml['tools']['kappa']> {
-  const buildFolder = await showFolderPicker({
-    title: 'Select the build folder (where the object files are outputted)',
-    defaultValue: currentConfig?.tools?.kappa?.buildFolder,
-  });
+export function getDecompYamlPaths(ctx: CtxDecompYaml): {
+  buildFolders: string[];
+  nonMatchingAsmFolders: string[];
+} {
+  const buildFolders: string[] = [];
+  const nonMatchingAsmFolders: string[] = [];
 
-  if (!buildFolder) {
-    vscode.window.showErrorMessage('No build folder selected.');
-    return;
+  if (ctx.decompYaml.versions) {
+    for (const version of ctx.decompYaml.versions) {
+      if (version.paths?.build_dir) {
+        buildFolders.push(version.paths.build_dir);
+      }
+      if (version.paths?.nonmatchings) {
+        nonMatchingAsmFolders.push(version.paths.nonmatchings);
+      }
+    }
   }
 
-  const nonMatchingAsmFolder = await showFolderPicker({
-    title: 'Select the folder which the non-matching assembly files (.s) are kept',
-    defaultValue: currentConfig?.tools?.kappa?.nonMatchingAsmFolder,
-  });
+  return { buildFolders, nonMatchingAsmFolders };
+}
 
-  if (!nonMatchingAsmFolder) {
-    vscode.window.showErrorMessage('No non-matching assembly folder selected.');
-    return;
-  }
+async function configureVersions(currentConfig: DecompYaml | null = null): Promise<DecompYaml['versions']> {
+  const versions = currentConfig?.versions ?? [];
 
-  return {
-    buildFolder: getRelativePath(buildFolder),
-    nonMatchingAsmFolder: getRelativePath(nonMatchingAsmFolder),
+  const addVersion = async (): Promise<boolean> => {
+    const versionName = await vscode.window.showInputBox({
+      prompt: 'Enter the version name (e.g., "usa", "jp", "eu")',
+      placeHolder: 'usa',
+    });
+
+    if (!versionName) {
+      return false;
+    }
+
+    const buildFolder = await showFolderPicker({
+      title: `Select the build folder for version "${versionName}"`,
+    });
+
+    if (!buildFolder) {
+      vscode.window.showErrorMessage('No build folder selected.');
+      return false;
+    }
+
+    const nonMatchingAsmFolder = await showFolderPicker({
+      title: `Select the non-matching assembly folder for version "${versionName}"`,
+    });
+
+    if (!nonMatchingAsmFolder) {
+      vscode.window.showErrorMessage('No non-matching assembly folder selected.');
+      return false;
+    }
+
+    versions.push({
+      name: versionName,
+      paths: {
+        build_dir: getRelativePath(buildFolder),
+        nonmatchings: getRelativePath(nonMatchingAsmFolder),
+      },
+    });
+
+    return true;
   };
+
+  // Add first version
+  if (versions.length === 0) {
+    const firstAdded = await addVersion();
+    if (!firstAdded) {
+      return undefined;
+    }
+  }
+
+  // Ask if they want to add more versions
+  while (true) {
+    const addMore = await showPicker({
+      title: 'Do you want to add another version?',
+      items: [
+        { label: 'Yes, add another version', value: 'yes' },
+        { label: 'No, continue', value: 'no' },
+      ] as const,
+    });
+
+    if (addMore !== 'yes') {
+      break;
+    }
+
+    const added = await addVersion();
+    if (!added) {
+      break;
+    }
+  }
+
+  return versions;
 }
 
 async function configureDecompMeTool(
@@ -285,24 +346,6 @@ async function configureSpecificTool<T extends keyof DecompYaml['tools']>({
   currentConfig: DecompYaml;
 }): Promise<DecompYaml | null> {
   switch (tool) {
-    case 'kappa': {
-      const kappaTool = await configureKappaTool(currentConfig);
-      if (!kappaTool) {
-        return null;
-      }
-
-      const newConfig: DecompYaml = {
-        ...currentConfig,
-        tools: {
-          ...currentConfig.tools,
-          kappa: kappaTool,
-        },
-      };
-
-      await updateDecompYaml(newConfig);
-      return newConfig;
-    }
-
     case 'decompme': {
       const decompmeTool = await configureDecompMeTool(currentConfig.platform, currentConfig);
       if (!decompmeTool) {
@@ -375,10 +418,12 @@ export async function createDecompYaml(currentConfig: DecompYaml | null = null):
     return null;
   }
 
-  // Configure kappa tool
-  const kappaTool = await configureKappaTool(currentConfig);
-  if (!kappaTool) {
-    vscode.window.showErrorMessage('Kappa tool configuration failed. Config file not created.');
+  // Configure versions
+  const versions = await configureVersions(currentConfig);
+  if (!versions || versions.length === 0) {
+    vscode.window.showErrorMessage(
+      'Versions configuration failed. Configure at least one version. Config file not created.',
+    );
     return null;
   }
 
@@ -422,8 +467,8 @@ export async function createDecompYaml(currentConfig: DecompYaml | null = null):
   // Create the final config object
   const newConfig: DecompYaml = {
     platform,
+    versions,
     tools: {
-      kappa: kappaTool,
       ...(decompmeTool ? { decompme: decompmeTool } : {}),
       ...(m2cTool ? { m2c: m2cTool } : {}),
     },
