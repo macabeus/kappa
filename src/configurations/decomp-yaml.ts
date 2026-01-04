@@ -29,7 +29,27 @@ const decompYamlSchema = z
     repo: z.string().optional(),
     platform: z.enum(decompYamlPlatforms),
     build_system: z.string().optional(),
-    versions: z.array(z.object()).optional(),
+    versions: z
+      .array(
+        z.object({
+          name: z.string(),
+          fullname: z.string().optional(),
+          sha1: z.string().optional(),
+          paths: z
+            .object({
+              target: z.string().optional(),
+              build_dir: z.string().optional(),
+              map: z.string().optional(),
+              compiled_target: z.string().optional(),
+              elf: z.string().optional(),
+              expected_dir: z.string().optional(),
+              asm: z.string().optional(),
+              nonmatchings: z.string().optional(),
+            })
+            .optional(),
+        }),
+      )
+      .optional(),
     tools: z
       .object({
         kappa: z
@@ -94,15 +114,16 @@ export async function loadDecompYaml() {
   return null;
 }
 
-export async function ensureDecompYamlDefinesTool({
+export async function ensureDecompYamlDefinesTool<T extends keyof DecompYaml['tools']>({
   ctx,
   tool,
 }: {
   ctx: CtxDecompYaml;
-  tool: keyof DecompYaml['tools'];
-}) {
+  tool: T;
+}): Promise<Required<Pick<DecompYaml['tools'], T>>[T]> {
   if (ctx.decompYaml.tools?.[tool]) {
-    return; // Configuration includes the specific tool
+    // Configuration includes the specific tool
+    return ctx.decompYaml.tools[tool];
   }
 
   const answer = await vscode.window.showInformationMessage(
@@ -112,7 +133,7 @@ export async function ensureDecompYamlDefinesTool({
   );
 
   if (answer === 'Yes') {
-    const newConfig = await createDecompYaml(ctx.decompYaml);
+    const newConfig = await configureSpecificTool({ tool, currentConfig: ctx.decompYaml });
     if (!newConfig) {
       throw new Error('decomp.yaml configuration update aborted');
     }
@@ -123,21 +144,21 @@ export async function ensureDecompYamlDefinesTool({
 
     ctx.decompYaml = newConfig;
 
-    return;
+    return ctx.decompYaml.tools[tool];
   }
 
   throw new Error(`Action canceled. The configuration for the tool "${tool}" is required`);
 }
 
-export async function createDecompYaml(currentConfig: DecompYaml | null = null): Promise<DecompYaml | null> {
+async function configureKappaTool(currentConfig: DecompYaml | null = null): Promise<DecompYaml['tools']['kappa']> {
   const buildFolder = await showFolderPicker({
     title: 'Select the build folder (where the object files are outputted)',
     defaultValue: currentConfig?.tools?.kappa?.buildFolder,
   });
 
   if (!buildFolder) {
-    vscode.window.showErrorMessage('No build folder selected. Config file not created.');
-    return null;
+    vscode.window.showErrorMessage('No build folder selected.');
+    return;
   }
 
   const nonMatchingAsmFolder = await showFolderPicker({
@@ -146,10 +167,192 @@ export async function createDecompYaml(currentConfig: DecompYaml | null = null):
   });
 
   if (!nonMatchingAsmFolder) {
-    vscode.window.showErrorMessage('No non-matching assembly folder selected. Config file not created.');
-    return null;
+    vscode.window.showErrorMessage('No non-matching assembly folder selected.');
+    return;
   }
 
+  return {
+    buildFolder: getRelativePath(buildFolder),
+    nonMatchingAsmFolder: getRelativePath(nonMatchingAsmFolder),
+  };
+}
+
+async function configureDecompMeTool(
+  platform: DecompYamlPlatforms,
+  currentConfig: DecompYaml | null = null,
+): Promise<DecompYaml['tools']['decompme']> {
+  const cFiles = await vscode.workspace.findFiles('**/*.{c,cpp}', 'tools/**');
+  const contextPath = await showFilePicker({
+    title: 'Enter the path to your context file for decomp.me.',
+    files: cFiles,
+    defaultValue: currentConfig?.tools?.decompme?.contextPath,
+  });
+
+  if (!contextPath) {
+    vscode.window.showErrorMessage('No context file selected.');
+    return;
+  }
+
+  const presets = await fetchPlatform(platform);
+
+  const compiler = await showPicker({
+    title: 'Select the compiler',
+    items: presets.compilers.map((compiler) => ({ value: compiler })),
+    defaultValue: currentConfig?.tools?.decompme?.compiler,
+  });
+
+  if (!compiler) {
+    vscode.window.showErrorMessage('No compiler selected.');
+    return;
+  }
+
+  const defaultPreset = await showPicker({
+    title: 'Select the preset. Esc to use custom.',
+    items: presets.presets.map((preset) => ({ label: preset.name, value: `${preset.id}` })),
+    defaultValue: currentConfig?.tools?.decompme?.preset?.toString(),
+  });
+
+  return {
+    contextPath: getRelativePath(contextPath),
+    compiler: compiler,
+    preset: defaultPreset ? parseInt(defaultPreset, 10) : null,
+  };
+}
+
+async function configureM2cTool(
+  currentConfig: DecompYaml | null = null,
+  decompmeTool?: NonNullable<DecompYaml['tools']>['decompme'],
+): Promise<DecompYaml['tools']['m2c']> {
+  const hasM2cPath = Boolean(getM2cPath());
+  if (!hasM2cPath) {
+    const m2cPathUpdated = await showInputBoxForSettingM2cPath();
+
+    if (!m2cPathUpdated) {
+      vscode.window.showErrorMessage('No m2c path provided.');
+      return;
+    }
+  }
+
+  const hasPythonExecutablePath = Boolean(getM2cPythonExecutablePath());
+  if (!hasPythonExecutablePath) {
+    const pythonExecutablePathUpdated = await showInputBoxForSettingPythonExecutablePath({
+      settingName: 'm2cPythonExecutablePath',
+    });
+
+    if (!pythonExecutablePathUpdated) {
+      vscode.window.showErrorMessage('No Python executable path provided.');
+      return;
+    }
+  }
+
+  const cFiles = await vscode.workspace.findFiles('**/*.{c,cpp}', 'tools/**');
+  const contextPath = await showFilePicker({
+    title: 'Enter the path to your context file for m2c. Esc to not use it.',
+    files: cFiles,
+    defaultValue: currentConfig?.tools?.m2c?.contextPath || decompmeTool?.contextPath,
+  });
+
+  const otherFlags = await vscode.window.showInputBox({
+    prompt: 'Write any additional flag to use on m2c. Esc to not use it.',
+    value: currentConfig?.tools?.m2c?.otherFlags,
+    validateInput: (value: string) => {
+      const flags = value.split(' ');
+
+      const invalidFlags = flags.filter(
+        (flag) =>
+          flag === '-t' || flag === '--target' || flag === '-f' || flag === '--function' || flag === '--context',
+      );
+
+      if (invalidFlags.length > 0) {
+        return `Invalid flags: ${invalidFlags}. These flags are reserved for Kappa.`;
+      }
+
+      return null;
+    },
+  });
+
+  return {
+    contextPath: contextPath ? getRelativePath(contextPath) : null,
+    otherFlags,
+  };
+}
+
+async function configureSpecificTool<T extends keyof DecompYaml['tools']>({
+  tool,
+  currentConfig,
+}: {
+  tool: T;
+  currentConfig: DecompYaml;
+}): Promise<DecompYaml | null> {
+  switch (tool) {
+    case 'kappa': {
+      const kappaTool = await configureKappaTool(currentConfig);
+      if (!kappaTool) {
+        return null;
+      }
+
+      const newConfig: DecompYaml = {
+        ...currentConfig,
+        tools: {
+          ...currentConfig.tools,
+          kappa: kappaTool,
+        },
+      };
+
+      await updateDecompYaml(newConfig);
+      return newConfig;
+    }
+
+    case 'decompme': {
+      const decompmeTool = await configureDecompMeTool(currentConfig.platform, currentConfig);
+      if (!decompmeTool) {
+        return null;
+      }
+
+      const newConfig: DecompYaml = {
+        ...currentConfig,
+        tools: {
+          ...currentConfig.tools,
+          decompme: decompmeTool,
+        },
+      };
+
+      await updateDecompYaml(newConfig);
+      return newConfig;
+    }
+
+    case 'm2c': {
+      if (currentConfig.platform === 'win32') {
+        vscode.window.showErrorMessage('m2c is not supported on win32 platform.');
+        return null;
+      }
+
+      const m2cTool = await configureM2cTool(currentConfig, currentConfig.tools?.decompme);
+      if (!m2cTool) {
+        return null;
+      }
+
+      const newConfig: DecompYaml = {
+        ...currentConfig,
+        tools: {
+          ...currentConfig.tools,
+          m2c: m2cTool,
+        },
+      };
+
+      await updateDecompYaml(newConfig);
+      return newConfig;
+    }
+
+    default: {
+      vscode.window.showErrorMessage(`Tool "${tool}" configuration is not supported yet.`);
+      return null;
+    }
+  }
+}
+
+export async function createDecompYaml(currentConfig: DecompYaml | null = null): Promise<DecompYaml | null> {
+  // Configure root properties
   const platform = await showPicker({
     title: 'Select Platform',
     items: [
@@ -172,7 +375,14 @@ export async function createDecompYaml(currentConfig: DecompYaml | null = null):
     return null;
   }
 
-  // Configure decomp.me
+  // Configure kappa tool
+  const kappaTool = await configureKappaTool(currentConfig);
+  if (!kappaTool) {
+    vscode.window.showErrorMessage('Kappa tool configuration failed. Config file not created.');
+    return null;
+  }
+
+  // Configure decomp.me tool
   const configureDecompMe = await showPicker({
     title: 'Do you want to configure the decomp.me tool?',
     items: [
@@ -183,45 +393,13 @@ export async function createDecompYaml(currentConfig: DecompYaml | null = null):
 
   let decompmeTool: NonNullable<DecompYaml['tools']>['decompme'] | undefined = undefined;
   if (configureDecompMe === 'yes') {
-    const cFiles = await vscode.workspace.findFiles('**/*.{c,cpp}', 'tools/**');
-    const contextPath = await showFilePicker({
-      title: 'Enter the path to your context file for decomp.me.',
-      files: cFiles,
-      defaultValue: currentConfig?.tools?.decompme?.contextPath,
-    });
-
-    if (!contextPath) {
-      vscode.window.showErrorMessage('No context file selected. Config file not created.');
+    decompmeTool = await configureDecompMeTool(platform, currentConfig);
+    if (!decompmeTool) {
       return null;
     }
-
-    const presets = await fetchPlatform(platform);
-
-    const compiler = await showPicker({
-      title: 'Select the compiler',
-      items: presets.compilers.map((compiler) => ({ value: compiler })),
-      defaultValue: currentConfig?.tools?.decompme?.compiler,
-    });
-
-    if (!compiler) {
-      vscode.window.showErrorMessage('No compiler selected. Config file not created.');
-      return null;
-    }
-
-    const defaultPreset = await showPicker({
-      title: 'Select the preset. Esc to use custom.',
-      items: presets.presets.map((preset) => ({ label: preset.name, value: `${preset.id}` })),
-      defaultValue: currentConfig?.tools?.decompme?.preset?.toString(),
-    });
-
-    decompmeTool = {
-      contextPath: getRelativePath(contextPath),
-      compiler: compiler,
-      preset: defaultPreset ? parseInt(defaultPreset, 10) : null,
-    };
   }
 
-  // Configure m2c if it's supported by the platform
+  // Configure m2c tool if it's supported by the platform
   let m2cTool: NonNullable<DecompYaml['tools']>['m2c'] | undefined = undefined;
 
   if (platform !== 'win32') {
@@ -234,58 +412,10 @@ export async function createDecompYaml(currentConfig: DecompYaml | null = null):
     });
 
     if (configureM2c === 'yes') {
-      const hasM2cPath = Boolean(getM2cPath());
-      if (!hasM2cPath) {
-        const m2cPathUpdated = await showInputBoxForSettingM2cPath();
-
-        if (!m2cPathUpdated) {
-          vscode.window.showErrorMessage('No m2c path provided. Config file not created.');
-          return null;
-        }
+      m2cTool = await configureM2cTool(currentConfig, decompmeTool);
+      if (!m2cTool) {
+        return null;
       }
-
-      const hasPythonExecutablePath = Boolean(getM2cPythonExecutablePath());
-      if (!hasPythonExecutablePath) {
-        const pythonExecutablePathUpdated = await showInputBoxForSettingPythonExecutablePath({
-          settingName: 'm2cPythonExecutablePath',
-        });
-
-        if (!pythonExecutablePathUpdated) {
-          vscode.window.showErrorMessage('No Python executable path provided. Config file not created.');
-          return null;
-        }
-      }
-
-      const cFiles = await vscode.workspace.findFiles('**/*.{c,cpp}', 'tools/**');
-      const contextPath = await showFilePicker({
-        title: 'Enter the path to your context file for m2c. Esc to not use it.',
-        files: cFiles,
-        defaultValue: currentConfig?.tools?.m2c?.contextPath || decompmeTool?.contextPath,
-      });
-
-      const otherFlags = await vscode.window.showInputBox({
-        prompt: 'Write any additional flag to use on m2c. Esc to not use it.',
-        value: currentConfig?.tools?.m2c?.otherFlags,
-        validateInput: (value: string) => {
-          const flags = value.split(' ');
-
-          const invalidFlags = flags.filter(
-            (flag) =>
-              flag === '-t' || flag === '--target' || flag === '-f' || flag === '--function' || flag === '--context',
-          );
-
-          if (invalidFlags.length > 0) {
-            return `Invalid flags: ${invalidFlags}. These flags are reserved for Kappa.`;
-          }
-
-          return null;
-        },
-      });
-
-      m2cTool = {
-        contextPath: contextPath ? getRelativePath(contextPath) : null,
-        otherFlags,
-      };
     }
   }
 
@@ -293,10 +423,7 @@ export async function createDecompYaml(currentConfig: DecompYaml | null = null):
   const newConfig: DecompYaml = {
     platform,
     tools: {
-      kappa: {
-        buildFolder: getRelativePath(buildFolder),
-        nonMatchingAsmFolder: getRelativePath(nonMatchingAsmFolder),
-      },
+      kappa: kappaTool,
       ...(decompmeTool ? { decompme: decompmeTool } : {}),
       ...(m2cTool ? { m2c: m2cTool } : {}),
     },

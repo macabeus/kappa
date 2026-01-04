@@ -8,6 +8,7 @@ import {
   listFunctionsFromAsmModule,
 } from '@utils/asm-utils';
 import { Searcher, registerClangLanguage, searchCodebase } from '@utils/ast-grep-utils';
+import { ensureDecompYamlDefinesTool } from '~/configurations/decomp-yaml';
 import type { CtxDecompYaml } from '~/context';
 import { getAsmFunctionFromBuildFolder } from '~/get-context-from-asm-function';
 
@@ -25,10 +26,7 @@ export async function indexCodebase(ctx: CtxDecompYaml) {
     return;
   }
 
-  if (!ctx.decompYaml.tools.kappa) {
-    vscode.window.showErrorMessage('Kappa tool is not configured. Please configure it first.');
-    return;
-  }
+  await ensureDecompYamlDefinesTool({ ctx, tool: 'kappa' });
 
   isIndexing = true;
 

@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import type { BaseLanguageClient } from 'vscode-languageclient';
 
-import { createDecompYaml, ensureDecompYamlDefinesTool, loadDecompYaml } from '@configurations/decomp-yaml';
+import { createDecompYaml, loadDecompYaml } from '@configurations/decomp-yaml';
 import { getM2cPath, showInputBoxForSettingM2cPath } from '@configurations/workspace-configs';
 import { database } from '@db/db';
 import { indexCodebase } from '@db/index-codebase';
@@ -365,7 +365,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
   vscode.commands.registerCommand('kappa.createDecompMeScratch', async (functionId?: string) => {
     registerClangLanguage();
     const ctx = await getContext({ decompYaml: true });
-    await ensureDecompYamlDefinesTool({ ctx, tool: 'decompme' });
 
     if (!functionId) {
       // TODO: Same as from `kappa.startDecompilerAgent`.
@@ -373,7 +372,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
       return;
     }
 
-    await createDecompMeScratch(functionId);
+    await createDecompMeScratch(ctx, functionId);
   });
 
   vscode.commands.registerCommand('kappa.decompileWithM2c', async (functionId?: string) => {
