@@ -23,28 +23,38 @@ import {
 export const decompYamlPlatforms = ['gba', 'nds', 'n3ds', 'n64', 'gc', 'wii', 'ps1', 'ps2', 'psp', 'win32'] as const;
 export type DecompYamlPlatforms = (typeof decompYamlPlatforms)[number];
 
-const decompYamlSchema = z.object({
-  platform: z.enum(decompYamlPlatforms),
-  tools: z.object({
-    kappa: z.object({
-      buildFolder: z.string(),
-      nonMatchingAsmFolder: z.string(),
-    }),
-    decompme: z
+const decompYamlSchema = z
+  .object({
+    name: z.string().optional(),
+    repo: z.string().optional(),
+    platform: z.enum(decompYamlPlatforms),
+    build_system: z.string().optional(),
+    versions: z.array(z.object()).optional(),
+    tools: z
       .object({
-        contextPath: z.string(),
-        compiler: z.string(),
-        preset: z.number().nullable(),
+        kappa: z
+          .object({
+            buildFolder: z.string(),
+            nonMatchingAsmFolder: z.string(),
+          })
+          .optional(),
+        decompme: z
+          .object({
+            contextPath: z.string(),
+            compiler: z.string(),
+            preset: z.number().nullable(),
+          })
+          .optional(),
+        m2c: z
+          .object({
+            contextPath: z.string().nullable().optional(),
+            otherFlags: z.string().optional(),
+          })
+          .optional(),
       })
-      .optional(),
-    m2c: z
-      .object({
-        contextPath: z.string().nullable().optional(),
-        otherFlags: z.string().optional(),
-      })
-      .optional(),
-  }),
-});
+      .loose(),
+  })
+  .loose();
 
 export type DecompYaml = z.infer<typeof decompYamlSchema>;
 
@@ -67,7 +77,9 @@ export async function loadDecompYaml() {
   try {
     const decompYaml = decompYamlSchema.parse(YAML.parse(rawContent));
     return decompYaml;
-  } catch {
+  } catch (error) {
+    console.error('Error parsing decomp.yaml:', error);
+
     const answer = await vscode.window.showInformationMessage(
       'decomp.yaml configuration file is invalid. Do you want to fix it?',
       'Yes',

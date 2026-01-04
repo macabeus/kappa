@@ -83,7 +83,9 @@ export async function getAsmFunctionFromBuildFolder({
   functionName: string;
   moduleName: string;
 }): Promise<{ asmCode: string; asmModulePath: string } | null> {
-  const object = await vscode.workspace.findFiles(`${ctx.decompYaml.tools.kappa.buildFolder}/**/${moduleName}.{o,obj}`);
+  const object = await vscode.workspace.findFiles(
+    `${ctx.decompYaml.tools.kappa!.buildFolder}/**/${moduleName}.{o,obj}`,
+  );
 
   if (object.length === 0) {
     console.warn(`Object file not found for C module "${moduleName}" in the build folder`);

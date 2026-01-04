@@ -25,6 +25,11 @@ export async function indexCodebase(ctx: CtxDecompYaml) {
     return;
   }
 
+  if (!ctx.decompYaml.tools.kappa) {
+    vscode.window.showErrorMessage('Kappa tool is not configured. Please configure it first.');
+    return;
+  }
+
   isIndexing = true;
 
   registerClangLanguage();
@@ -98,7 +103,7 @@ export async function indexCodebase(ctx: CtxDecompYaml) {
       progress.report({ increment: 25 });
 
       const asmFiles = await vscode.workspace.findFiles(
-        `${ctx.decompYaml.tools.kappa.nonMatchingAsmFolder}/**/*.{s,S,asm}`,
+        `${ctx.decompYaml.tools.kappa!.nonMatchingAsmFolder}/**/*.{s,S,asm}`,
       );
       for (const asmFile of asmFiles) {
         const asmDocument = await vscode.workspace.openTextDocument(asmFile);
