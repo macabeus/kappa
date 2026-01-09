@@ -51,16 +51,25 @@ export async function searchCodebase(files: vscode.Uri[], searchers: Searcher[])
 }
 
 /**
+ * Parse C source code and return the root AST node
+ * @param sourceCode The C source code to parse
+ * @returns The root node of the AST, or null if parsing failed
+ */
+export function parseSourceCode(sourceCode: string): SgNode {
+  registerClangLanguage();
+
+  const source = parse('c', sourceCode);
+  return source.root();
+}
+
+/**
  * Extract only the target function from C source code, removing all other function definitions
  * @param sourceCode The original C source code
  * @param targetFunctionName The name of the function to extract
  * @returns The C source code containing only the target function and any non-function code
  */
 export function extractTargetFunction(sourceCode: string, targetFunctionName: string): string {
-  registerClangLanguage();
-
-  const source = parse('c', sourceCode);
-  const root = source.root();
+  const root = parseSourceCode(sourceCode);
 
   // Find all function definitions
   const functionDefinitions = root.findAll({
@@ -118,4 +127,70 @@ export function extractTargetFunction(sourceCode: string, targetFunctionName: st
     });
 
   return result;
+}
+
+/**
+ * Helper function to find the deepest AST node that contains a given range
+ */
+function findNodeInRange(
+  rootNode: SgNode,
+  startPos: { line: number; column: number },
+  endPos: { line: number; column: number },
+): SgNode | null {
+  const findNode = (node: SgNode): SgNode | null => {
+    const range = node.range();
+
+    // Check if node's start is at or before startPos
+    const startsBeforeOrAt =
+      range.start.line < startPos.line || (range.start.line === startPos.line && range.start.column <= startPos.column);
+
+    // Check if node's end is at or after endPos
+    const endsAtOrAfter =
+      range.end.line > endPos.line || (range.end.line === endPos.line && range.end.column >= endPos.column);
+
+    // Check if this node contains the range
+    if (startsBeforeOrAt && endsAtOrAfter) {
+      // This node contains the range, check children for more specific match
+      const children = node.children();
+      for (const child of children) {
+        const childMatch = findNode(child);
+        if (childMatch) {
+          return childMatch;
+        }
+      }
+      // No child matched more specifically, return this node
+      return node;
+    }
+
+    return null;
+  };
+
+  return findNode(rootNode);
+}
+
+/**
+ * Find the deepest AST node that contains the given position
+ * @param rootNode The root AST node to search from
+ * @param position The position
+ * @returns The deepest node containing the position, or null if not found
+ */
+export function findNodeAtPosition(rootNode: SgNode, position: vscode.Position): SgNode | null {
+  const pos = { line: position.line, column: position.character };
+  return findNodeInRange(rootNode, pos, pos);
+}
+
+/**
+ * Find the deepest AST node that contains the given selection range
+ * @param rootNode The root AST node to search from
+ * @param selection The VS Code selection range
+ * @returns The deepest node containing the selection, or null if not found
+ */
+export function findNodeAtSelection(rootNode: SgNode, selection: vscode.Selection): SgNode | null {
+  if (selection.isEmpty) {
+    return null;
+  }
+
+  const startPos = { line: selection.start.line, column: selection.start.character };
+  const endPos = { line: selection.end.line, column: selection.end.character };
+  return findNodeInRange(rootNode, startPos, endPos);
 }

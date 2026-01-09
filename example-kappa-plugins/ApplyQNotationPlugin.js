@@ -1,5 +1,5 @@
 /**
- * Plugin to add the Q notation to assignments for a `Vec2_32` field in a record.
+ * Plugin to add the Q notation to assignments for fields named `x` or `y` in a record.
  *
  * For example, for the given file:
  *
@@ -102,16 +102,17 @@ export default class ApplyQNotationPlugin {
     ];
   }
 
-  async visitBinaryOperator(node, visitor) {
-    if (node.detail === '=' && node.children?.[1].kind === 'IntegerLiteral') {
-      const leftChild = node.children[0];
+  async visitAssignmentExpression(node, visitor) {
+    const children = node.children();
+    if (children.length === 3 && children[1].text() === '=' && children[2].kind() === 'number_literal') {
+      const leftChild = children[0];
+      const rightChild = children[2];
 
-      if (leftChild.children?.[0] && visitor.getNodeType(leftChild.children[0]) === 'Vec2_32') {
-        const leftChildType = visitor.getNodeType(leftChild);
-
-        if (leftChildType === 's32') {
-          const rightChild = node.children[1];
-          const rawValue = Number(rightChild.detail);
+      // Check if the left side is a field access like example.qValue.x
+      if (leftChild.kind() === 'field_expression') {
+        const leftChildText = leftChild.text();
+        if (leftChildText.endsWith('.x') || leftChildText.endsWith('.y')) {
+          const rawValue = Number(rightChild.text());
           const qNotationValue = rawValue / 256;
 
           visitor.updateDocumentNodeWithRawCode(rightChild, `Q(${qNotationValue})`);

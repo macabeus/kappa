@@ -149,33 +149,54 @@ export default class LiftVariableDeclarationsPlugin {
     ];
   }
 
-  async visitCompound(node, visitor) {
-    // Collect all variable declarations that have initializers and are not at the top
+  async visitCompoundStatement(node, visitor) {
     const declarations = [];
     let firstNonDeclNode = null;
 
-    for (let i = 0; i < node.children.length; i++) {
-      const child = node.children[i];
+    // Find declarations with initializers that are not at the top
+    for (const child of node.children()) {
+      if (child.kind() === 'declaration') {
+        const declarationChildren = child.children();
 
-      if (child.kind === 'Decl') {
-        if (firstNonDeclNode) {
+        // Check if this is a declaration with initializer (like "int value = expression;")
+        const hasInitializer = declarationChildren.some(
+          (dc) => dc.kind() === 'init_declarator' && dc.text().includes('='),
+        );
+
+        if (firstNonDeclNode && hasInitializer) {
           declarations.push(child);
         }
-      } else if (!firstNonDeclNode) {
-        firstNonDeclNode = node.children[i];
+      } else if (!firstNonDeclNode && child.kind() !== '{' && child.kind() !== '}') {
+        firstNonDeclNode = child;
       }
     }
 
     // Update the block to lift the declarations
     for (const decl of declarations) {
-      // Add the declaration to the top of the block
-      visitor.insertLineBeforeNode(
-        firstNonDeclNode,
-        `${decl.children[0].children[0].detail} ${decl.children[0].detail};`,
-      );
+      const declChildren = decl.children();
 
-      // Remove the declaration from its original position
-      visitor.applyRegexReplace(decl, /^[\w\d]+\s+/, '');
+      // Extract variable name and type from the declaration
+      for (const declChild of declChildren) {
+        if (declChild.kind() === 'init_declarator') {
+          const initDeclChildren = declChild.children();
+          if (initDeclChildren.length >= 3) {
+            const varName = initDeclChildren[0].text();
+
+            // Find the type from the declaration
+            const typeSpec = declChildren.find(
+              (dc) => dc.kind() === 'type_specifier' || dc.kind() === 'primitive_type',
+            );
+            const varType = typeSpec ? typeSpec.text() : 'int';
+
+            // Add the declaration to the top of the block
+            visitor.insertLineBeforeNode(firstNonDeclNode, `${varType} ${varName};`);
+
+            // Replace the original declaration with just an assignment
+            const assignmentText = `${varName} = ${initDeclChildren[2].text()};`;
+            visitor.updateDocumentNodeWithRawCode(decl, assignmentText);
+          }
+        }
+      }
     }
   }
 }

@@ -1,5 +1,5 @@
+import { SgNode } from '@ast-grep/napi';
 import * as vscode from 'vscode';
-import type { BaseLanguageClient } from 'vscode-languageclient';
 
 import { createDecompYaml, loadDecompYaml } from '@configurations/decomp-yaml';
 import { getM2cPath, showInputBoxForSettingM2cPath } from '@configurations/workspace-configs';
@@ -15,72 +15,20 @@ import { createDecompilePrompt } from '@prompt-builder/prompt-builder';
 import { AssemblyCodeLensProvider } from '@providers/assembly-code-lens';
 import { CCodeLensProvider } from '@providers/c-code-lens';
 import { removeAssemblyFunction } from '@utils/asm-utils';
-import { registerClangLanguage } from '@utils/ast-grep-utils';
+import {
+  findNodeAtPosition,
+  findNodeAtSelection,
+  getFirstParentWithKind,
+  parseSourceCode,
+  registerClangLanguage,
+} from '@utils/ast-grep-utils';
 import { findWorkspaceFilesContainingText, getRelativePath, showFilePicker, showPicker } from '@utils/vscode-utils';
 import { DecompPermuterWebviewProvider } from '@webview/decomp-permuter-webview';
 import { ASTVisitor } from '~/ast-visitor';
 import { getContext } from '~/context';
 import { loadKappaPlugins, runTestsForCurrentKappaPlugin } from '~/kappa-plugins';
 
-import { activateClangd } from './clangd/activate-clangd';
-import { ClangdExtensionImpl } from './clangd/api';
-import { ASTRequestType } from './clangd/ast';
-import { ClangdExtension } from './clangd/vscode-clangd';
-
-// Constants for configuration
-const CLANGD_CHECK_INTERVAL = 100;
-const CLANGD_CHECK_TIMEOUT = 30_000;
-
-/**
- * Waits for the clangd client to be running with timeout
- */
-async function waitForClangdClient(clangd: ClangdExtensionImpl): Promise<ClangdExtensionImpl> {
-  const startTime = Date.now();
-
-  return new Promise<ClangdExtensionImpl>((resolve, reject) => {
-    const check = () => {
-      if (clangd.client?.isRunning()) {
-        resolve(clangd);
-        return;
-      }
-
-      if (Date.now() - startTime > CLANGD_CHECK_TIMEOUT) {
-        reject(new Error('Timeout waiting for clangd client to start'));
-        return;
-      }
-
-      setTimeout(check, CLANGD_CHECK_INTERVAL);
-    };
-
-    check();
-  });
-}
-
-/**
- * Gets the clangd client instance, throwing an error if not available
- */
-async function getClangdClient(apiInstance: Promise<ClangdExtensionImpl>): Promise<BaseLanguageClient> {
-  const api = await apiInstance;
-  const client = api.client;
-
-  if (!client) {
-    throw new Error('Clangd client is not available');
-  }
-
-  return client;
-}
-
-export async function activate(context: vscode.ExtensionContext): Promise<ClangdExtension> {
-  let apiInstance: Promise<ClangdExtensionImpl>;
-
-  try {
-    const clangd = await activateClangd(context);
-    apiInstance = waitForClangdClient(clangd);
-  } catch (error) {
-    vscode.window.showErrorMessage(`Failed to activate clangd: ${error}`);
-    throw error;
-  }
-
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
   // Register providers
   const codeLensProvider = new AssemblyCodeLensProvider();
   const cLensProvider = new CCodeLensProvider();
@@ -242,33 +190,48 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
   });
 
   vscode.commands.registerCommand('kappa.runKappaPlugins', async () => {
-    const client = await getClangdClient(apiInstance);
-    const converter = client.code2ProtocolConverter;
+    registerClangLanguage();
+
     const editor = vscode.window.activeTextEditor;
-
-    const item = await client.sendRequest(ASTRequestType, {
-      textDocument: converter.asTextDocumentIdentifier(editor!.document),
-      range: converter.asRange(editor!.selection),
-    });
-
-    if (!item) {
-      vscode.window.showErrorMessage('No AST found for the current selection.');
+    if (!editor) {
+      vscode.window.showErrorMessage('No active text editor found.');
       return;
     }
 
-    const visitor = new ASTVisitor(client);
+    // Parse active document with ast-grep
+    const sourceCode = editor.document.getText();
+    const rootNode = parseSourceCode(sourceCode);
+
+    // Get the node to process
+    let selectedNode: SgNode | null = null;
+    if (editor.selection.isEmpty) {
+      selectedNode = findNodeAtPosition(rootNode, editor.selection.start);
+
+      if (selectedNode?.kind() === 'struct') {
+        selectedNode = selectedNode.parent();
+      } else if (selectedNode?.kind() === 'identifier') {
+        const functionDefinitionNode = getFirstParentWithKind(selectedNode, 'function_definition');
+        if (functionDefinitionNode) {
+          selectedNode = functionDefinitionNode;
+        }
+      }
+    } else {
+      selectedNode = findNodeAtSelection(rootNode, editor.selection);
+    }
+
+    const nodeToProcess = selectedNode || rootNode;
 
     // Load custom plugins from kappa-plugins folder
+    const visitor = new ASTVisitor();
     await loadKappaPlugins(visitor);
 
-    await visitor.walk(item);
-
+    // Walk the AST and apply plugins
+    await visitor.walk(nodeToProcess);
     await visitor.applyPendingEdits();
   });
 
   vscode.commands.registerCommand('kappa.runTestsForCurrentKappaPlugin', async () => {
-    const client = await getClangdClient(apiInstance);
-    const visitor = new ASTVisitor(client);
+    const visitor = new ASTVisitor();
     await runTestsForCurrentKappaPlugin(visitor);
 
     vscode.window.showInformationMessage('Tests for current Kappa plugin completed.');
@@ -492,6 +455,4 @@ export async function activate(context: vscode.ExtensionContext): Promise<Clangd
 
   // Register Language Model Tools
   context.subscriptions.push(vscode.lm.registerTool('get_diff_between_object_files', new GetDiffBetweenObjectFiles()));
-
-  return apiInstance;
 }
