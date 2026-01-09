@@ -8,6 +8,6 @@ export default class DummyPlugin {
   }
 
   async visitAny(node, visitor) {
-    console.log(`TestPlugin visited node of type: ${node.kind}`);
+    console.log(`TestPlugin visited node of type: ${node.kind()}`);
   }
 }

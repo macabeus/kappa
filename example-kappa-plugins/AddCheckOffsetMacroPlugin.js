@@ -71,15 +71,13 @@ const getAlignedOffset = (currentOffset, fieldSize, alignment = MEMORY_ALIGNMENT
   return currentOffset + (alignTo - remainder);
 };
 
-const getSize = async (node, visitor) => {
-  const definition = await visitor.getDefinition(node);
+const getSize = (identifierNode, visitor) => {
+  const definition = visitor.getIdentifierDeclaration(identifierNode, visitor.rootNode);
   if (!definition) {
     return null;
   }
 
-  debugger;
-
-  const traillingComment = await visitor.getTrailingComment(definition);
+  const traillingComment = visitor.getTrailingComment(definition);
   if (!traillingComment) {
     return null;
   }
@@ -181,27 +179,41 @@ export default class AddCheckOffsetMacroPlugin {
     ];
   }
 
-  async visitRecord(node, visitor) {
+  async visitStructSpecifier(node, visitor) {
     let lastOffset = 0;
 
-    for (const child of node.children) {
-      if (child.kind === 'Field') {
-        const type = visitor.getNodeType(child);
-        const size = mapTypeToSize[type] ?? (await getSize(child, visitor));
+    let structName = '';
+    if (node.parent().kind() === 'type_definition') {
+      structName = node.parent().children().at(-2).text();
+    } else {
+      structName = node.children()[1].text();
+    }
 
-        // Calculate aligned offset for this field
-        const alignedOffset = getAlignedOffset(lastOffset, size);
+    const fieldDeclarationNodes = node.findAll({
+      rule: { kind: 'field_declaration' },
+    });
 
-        visitor.insertLineAfterNode(
-          node,
-          `CHECK_OFFSET_X86(${node.detail}, ${child.detail}, 0x${alignedOffset
-            .toString(16)
-            .padStart(2, '0')
-            .toUpperCase()});`,
-        );
+    for (const fieldDeclarationNode of fieldDeclarationNodes) {
+      const fieldTypeNode = fieldDeclarationNode.find({
+        rule: { kind: 'type_identifier' },
+      });
 
-        lastOffset = alignedOffset + size;
-      }
+      const fieldIdentifierNode = fieldDeclarationNode.find({
+        rule: { kind: 'field_identifier' },
+      });
+
+      const size = mapTypeToSize[fieldTypeNode.text()] ?? getSize(fieldTypeNode, visitor);
+      const alignedOffset = getAlignedOffset(lastOffset, size);
+
+      visitor.insertLineAfterNode(
+        node,
+        `CHECK_OFFSET_X86(${structName}, ${fieldIdentifierNode.text()}, 0x${alignedOffset
+          .toString(16)
+          .padStart(2, '0')
+          .toUpperCase()});`,
+      );
+
+      lastOffset = alignedOffset + size;
     }
 
     // Apply final alignment to the total struct size

@@ -72,13 +72,13 @@ const getAlignedOffset = (currentOffset, fieldSize, alignment = MEMORY_ALIGNMENT
   return currentOffset + (alignTo - remainder);
 };
 
-const getSize = async (node, visitor) => {
-  const definition = await visitor.getDefinition(node);
+const getSize = (identifierNode, visitor) => {
+  const definition = visitor.getIdentifierDeclaration(identifierNode, visitor.rootNode);
   if (!definition) {
     return null;
   }
 
-  const traillingComment = await visitor.getTrailingComment(definition);
+  const traillingComment = visitor.getTrailingComment(definition);
   if (!traillingComment) {
     return null;
   }
@@ -180,21 +180,24 @@ export default class AddOffsetCommentsPlugin {
     ];
   }
 
-  async visitRecord(node, visitor) {
+  async visitStructSpecifier(node, visitor) {
     let lastOffset = 0;
 
-    for (const child of node.children) {
-      if (child.kind === 'Field') {
-        const type = visitor.getNodeType(child);
-        const size = mapTypeToSize[type] ?? (await getSize(child, visitor));
+    const fieldDeclarationNodes = node.findAll({
+      rule: { kind: 'field_declaration' },
+    });
 
-        // Calculate aligned offset for this field
-        const alignedOffset = getAlignedOffset(lastOffset, size);
+    for (const fieldDeclarationNode of fieldDeclarationNodes) {
+      const fieldTypeNode = fieldDeclarationNode.find({
+        rule: { kind: 'type_identifier' },
+      });
 
-        visitor.addLeadingComment(child, `0x${alignedOffset.toString(16).padStart(2, '0').toUpperCase()}`);
+      const size = mapTypeToSize[fieldTypeNode.text()] ?? getSize(fieldTypeNode, visitor);
+      const alignedOffset = getAlignedOffset(lastOffset, size);
 
-        lastOffset = alignedOffset + size;
-      }
+      visitor.addLeadingComment(fieldDeclarationNode, `0x${alignedOffset.toString(16).padStart(2, '0').toUpperCase()}`);
+
+      lastOffset = alignedOffset + size;
     }
 
     // Apply final alignment to the total struct size

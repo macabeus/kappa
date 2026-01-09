@@ -11,7 +11,6 @@ export default defineConfig({
       '~': path.resolve(__dirname, './src'),
       '@utils': path.resolve(__dirname, './src/utils'),
       '@configurations': path.resolve(__dirname, './src/configurations'),
-      '@clangd': path.resolve(__dirname, './src/clangd'),
       '@db': path.resolve(__dirname, './src/db'),
       '@decomp-permuter': path.resolve(__dirname, './src/decomp-permuter'),
       '@decompme': path.resolve(__dirname, './src/decompme'),

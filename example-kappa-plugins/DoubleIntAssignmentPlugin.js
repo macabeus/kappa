@@ -48,17 +48,16 @@ export default class DoubleIntAssignmentPlugin {
     ];
   }
 
-  async visitBinaryOperator(node, visitor) {
-    if (node.detail === '=' && node.children?.[1].kind === 'IntegerLiteral') {
-      const leftChild = node.children[0];
+  async visitAssignmentExpression(node, visitor) {
+    const children = node.children();
+    if (children.length === 3 && children[1].text() === '=' && children[2].kind() === 'number_literal') {
+      const leftChild = children[0];
+      const rightChild = children[2];
 
-      const leftChildType = visitor.getNodeType(leftChild);
-
-      if (leftChildType === 'int') {
-        const rightChild = node.children[1];
-        rightChild.detail = `${Number(rightChild.detail) * 2}`;
-
-        visitor.updateDocumentFromNode(rightChild);
+      const leftChildKind = leftChild.kind();
+      if (leftChildKind === 'identifier') {
+        const newValue = `${Number(rightChild.text()) * 2}`;
+        visitor.updateDocumentNodeWithRawCode(rightChild, newValue);
       }
     }
   }

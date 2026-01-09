@@ -26,15 +26,6 @@ jobs:
       - name: Install dependencies
         run: yarn install
 
-      - name: Set up Clang
-        uses: egor-tensin/setup-clang@v1
-
-      - name: Install clangd
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clangd-16
-          sudo update-alternatives --install /usr/bin/clangd clangd /usr/bin/clangd-16 100
-
       - name: Install ARM toolchain
         run: sudo apt-get install -y gcc-arm-none-eabi
 
