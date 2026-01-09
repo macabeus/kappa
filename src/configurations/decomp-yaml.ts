@@ -3,6 +3,7 @@ import YAML from 'yaml';
 import z from 'zod';
 
 import { fetchPlatform } from '@decompme/platform';
+import { RemoveIndexSignature } from '@utils/type-utils';
 import {
   checkFileExists,
   getRelativePath,
@@ -73,6 +74,8 @@ const decompYamlSchema = z
 
 export type DecompYaml = z.infer<typeof decompYamlSchema>;
 
+export type KnownTools = RemoveIndexSignature<NonNullable<DecompYaml['tools']>>;
+
 export async function loadDecompYaml() {
   const workspaceUri = getWorkspaceUri();
 
@@ -109,13 +112,13 @@ export async function loadDecompYaml() {
   return null;
 }
 
-export async function ensureDecompYamlDefinesTool<T extends keyof DecompYaml['tools']>({
+export async function ensureDecompYamlDefinesTool<T extends keyof KnownTools>({
   ctx,
   tool,
 }: {
   ctx: CtxDecompYaml;
   tool: T;
-}): Promise<Required<Pick<DecompYaml['tools'], T>>[T]> {
+}): Promise<NonNullable<KnownTools[T]>> {
   if (ctx.decompYaml.tools?.[tool]) {
     // Configuration includes the specific tool
     return ctx.decompYaml.tools[tool];
@@ -337,7 +340,7 @@ async function configureM2cTool(
   };
 }
 
-async function configureSpecificTool<T extends keyof DecompYaml['tools']>({
+async function configureSpecificTool<T extends keyof KnownTools>({
   tool,
   currentConfig,
 }: {
