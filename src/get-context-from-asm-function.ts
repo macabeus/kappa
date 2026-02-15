@@ -187,31 +187,33 @@ async function getCodebaseContext(decompFunction: DecompFunction): Promise<Codeb
       });
     }
 
-    // Searcher for the type definitions used by the declarations
-    const typeIdentifierMatcher = {
-      rule: {
-        kind: 'type_identifier',
-        regex: [...typesFromDeclarations].map((funcName) => `^(${funcName})$`).join('|'),
-        inside: {
-          kind: 'type_definition',
+    if (typesFromDeclarations.size > 0) {
+      // Searcher for the type definitions used by the declarations
+      const typeIdentifierMatcher = {
+        rule: {
+          kind: 'type_identifier',
+          regex: [...typesFromDeclarations].map((funcName) => `^(${funcName})$`).join('|'),
+          inside: {
+            kind: 'type_definition',
+          },
         },
-      },
-    };
+      };
 
-    const typeIdentifierSearcher: Searcher = {
-      matcher: typeIdentifierMatcher,
-      handlerEach(file, typeIdentifier) {
-        const typeDefinitionNode = getFirstParentWithKind(typeIdentifier, 'type_definition');
-        if (!typeDefinitionNode) {
-          console.warn(`Skipping type identifier in "${file.fsPath}" due to missing type definition`);
-          return;
-        }
+      const typeIdentifierSearcher: Searcher = {
+        matcher: typeIdentifierMatcher,
+        handlerEach(file, typeIdentifier) {
+          const typeDefinitionNode = getFirstParentWithKind(typeIdentifier, 'type_definition');
+          if (!typeDefinitionNode) {
+            console.warn(`Skipping type identifier in "${file.fsPath}" due to missing type definition`);
+            return;
+          }
 
-        result.typeDefinitions.push(typeDefinitionNode.text());
-      },
-    };
+          result.typeDefinitions.push(typeDefinitionNode.text());
+        },
+      };
 
-    await searchCodebase(codebaseFiles, [typeIdentifierSearcher]);
+      await searchCodebase(codebaseFiles, [typeIdentifierSearcher]);
+    }
   }
 
   return result;
