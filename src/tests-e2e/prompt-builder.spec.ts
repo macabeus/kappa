@@ -392,13 +392,6 @@ typedef struct {
 } Pair;
 \`\`\`
 
-\`\`\`c
-typedef struct {
-    int first;
-    int second;
-} Pair;
-\`\`\`
-
 # Primary Objective
 
 Decompile the following target assembly function from \`asm/product_pair.asm\` into clean, readable C code that compiles to an assembly matching EXACTLY the original one.

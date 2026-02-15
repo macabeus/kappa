@@ -129,6 +129,7 @@ type CodebaseContext = {
 async function getCodebaseContext(decompFunction: DecompFunction): Promise<CodebaseContext> {
   const allFunctionsName = [decompFunction.name, ...decompFunction.callsFunctions.map((func) => func.name)];
 
+  const typeDefinitionsAddedNames = new Set<string>();
   const result: CodebaseContext = {
     calledFunctionsDeclarations: {},
     typeDefinitions: [],
@@ -208,7 +209,10 @@ async function getCodebaseContext(decompFunction: DecompFunction): Promise<Codeb
             return;
           }
 
-          result.typeDefinitions.push(typeDefinitionNode.text());
+          if (!typeDefinitionsAddedNames.has(typeIdentifier.text())) {
+            typeDefinitionsAddedNames.add(typeIdentifier.text());
+            result.typeDefinitions.push(typeDefinitionNode.text());
+          }
         },
       };
 
