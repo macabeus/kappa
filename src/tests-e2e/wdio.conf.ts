@@ -73,7 +73,7 @@ export const config: WebdriverIO.Config = {
   capabilities: [
     {
       browserName: 'vscode',
-      browserVersion: 'stable', // also possible: "insiders" or a specific version e.g. "1.80.0"
+      browserVersion: '1.109.2', // pinned: 'stable' (1.109.3) lacks a git tag, breaking cgmanifest.json lookup
       'wdio:enforceWebDriverClassic': true, // use classic WebDriver protocol
       'wdio:vscodeOptions': {
         // points to directory where extension package.json is located
