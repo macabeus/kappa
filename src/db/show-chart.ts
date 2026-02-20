@@ -275,9 +275,9 @@ function getWebviewContent(
             <div class="chart-info">Total functions: ${data.length}</div>
             <div class="chart-info">Each bubble represents a function in your codebase, positioned by similarity of their assembly code.</div>
             <div class="chart-info">
-                <span style="color: #FF69B4;">●</span> Pink: Functions with C code
-                <span style="margin-left: 20px; color: #FFFFFF;">●</span> White: Assembly-only functions
-                <span style="margin-left: 20px; color: #007ACC;">●</span> Blue: Selected functions (when filtered)
+                <span style="color: #FF69B4;">●</span> Pink: Functions with C code (<span id="count-pink">0</span>)
+                <span style="margin-left: 20px; color: #FFFFFF;">●</span> White: Assembly-only functions (<span id="count-white">0</span>)
+                <span style="margin-left: 20px; color: #007ACC;">●</span> Blue: Selected functions (<span id="count-blue">0</span>)
             </div>
             <div class="chart-container">
                 <canvas id="chart"></canvas>
@@ -578,6 +578,7 @@ function getWebviewContent(
                 }
                 
                 chart.update();
+                updateLegendCounts();
             }
             
             function isPointFiltered(point) {
@@ -601,6 +602,18 @@ function getWebviewContent(
                 return !pathMatches;
             }
             
+            function updateLegendCounts() {
+                var pinkCount = data.filter(function(d) { return d.hasCCode; }).length;
+                var whiteCount = data.filter(function(d) { return !d.hasCCode; }).length;
+                var blueCount = 0;
+                if (selectedPath) {
+                    blueCount = data.filter(function(d) { return !isPointFiltered(d); }).length;
+                }
+                document.getElementById('count-pink').textContent = pinkCount;
+                document.getElementById('count-white').textContent = whiteCount;
+                document.getElementById('count-blue').textContent = blueCount;
+            }
+
             function initChart() {
                 const ctx = document.getElementById('chart').getContext('2d');
                 
@@ -720,7 +733,8 @@ function getWebviewContent(
                 
                 populateNavigation();
                 initChart();
-                
+                updateLegendCounts();
+
                 // Debug: log the tree structure
                 console.log('Built file tree:', fileTree);
             });
