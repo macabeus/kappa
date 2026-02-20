@@ -113,6 +113,28 @@ function getWebviewContent(
                 overflow-y: auto;
                 max-height: 80vh;
             }
+            .sidebar.hidden {
+                display: none;
+            }
+            .toggle-sidebar {
+                position: fixed;
+                top: 8px;
+                right: 8px;
+                background: none;
+                color: var(--vscode-foreground);
+                border: 1px solid var(--vscode-panel-border);
+                border-radius: 4px;
+                padding: 4px 6px;
+                cursor: pointer;
+                font-size: 16px;
+                line-height: 1;
+                z-index: 100;
+                opacity: 0.7;
+            }
+            .toggle-sidebar:hover {
+                opacity: 1;
+                background-color: var(--vscode-toolbar-hoverBackground);
+            }
             .main-content {
                 flex: 1;
                 min-width: 0;
@@ -252,6 +274,7 @@ function getWebviewContent(
         </style>
     </head>
     <body>
+        <button class="toggle-sidebar" onclick="toggleSidebar()" title="Toggle File Explorer">&#9776;</button>
         <div class="sidebar">
             <div class="sidebar-title">File Explorer</div>
             
@@ -277,7 +300,7 @@ function getWebviewContent(
             <div class="chart-info">
                 <span style="color: #FF69B4;">●</span> Pink: Functions with C code (<span id="count-pink">0</span>)
                 <span style="margin-left: 20px; color: #FFFFFF;">●</span> White: Assembly-only functions (<span id="count-white">0</span>)
-                <span style="margin-left: 20px; color: #007ACC;">●</span> Blue: Selected functions (<span id="count-blue">0</span>)
+                <span id="legend-blue"><span style="margin-left: 20px; color: #007ACC;">●</span> Blue: Selected functions (<span id="count-blue">0</span>)</span>
             </div>
             <div class="chart-container">
                 <canvas id="chart"></canvas>
@@ -289,7 +312,17 @@ function getWebviewContent(
             let chart;
             let selectedPath = null;
             let fileTree = {};
-            
+
+            function toggleSidebar() {
+                var sidebar = document.querySelector('.sidebar');
+                sidebar.classList.toggle('hidden');
+                var isVisible = !sidebar.classList.contains('hidden');
+                document.getElementById('legend-blue').style.display = isVisible ? '' : 'none';
+                if (!isVisible) {
+                    clearAllFilters();
+                }
+            }
+
             // Build tree structure from file paths
             function buildFileTree() {
                 const tree = {};
